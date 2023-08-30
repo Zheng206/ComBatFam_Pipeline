@@ -179,7 +179,7 @@ if(argv$visualization){
   }
   
   message("datasets are ready! Starting shiny app......")
-  comfam_shiny(result, argv$after)
+  comfam_shiny(result, argv$after, argv$eb, argv$score_eb)
   #print(paste(c(argv$model, colnames(df)[bat_col], colnames(df[cov_col]), interaction, smooth, argv$int_type), collapse = ","))
 }else{
 # Run Combat

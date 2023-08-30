@@ -11,6 +11,8 @@ require(shinydashboard)
 #'
 #' @param result A list derived from `visual_prep()` that contains datasets for shiny visualization.
 #' @param after A boolean variable indicating whether the dataset is before or after harmonization. Default is FALSE
+#' @param eb If \code{TRUE}, uses ComBat model with empirical Bayes for mean and variance harmonization.
+#' @param score_eb If \code{TRUE}, uses ComBat model with empirical Bayes for score mean and variance harmonization.
 #'
 #' @import ggplot2
 #' @import shiny
@@ -23,7 +25,7 @@ require(shinydashboard)
 #' 
 #' @export
 
-comfam_shiny = function(result, after){
+comfam_shiny = function(result, after, eb, score_eb){
   info = result$info
   type = info$type
   df = info$df
@@ -330,60 +332,121 @@ comfam_shiny = function(result, after){
         }
       }else{
         if(result$com_family == "comfam"){
-          min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
-          max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
-          if(input$batch_selection == "All"){
-            ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
-                                                                                  type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
-              geom_density() +
-              xlim(min_x, max_x) +
-              labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
-              guides(color = "none")
-          }else{
-            ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
-                                                                                                                               type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
-              geom_density() +
-              xlim(min_x, max_x) +
-              labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
-            }
-        }else if(result$com_family == "covfam"){
-          if(input$eb_check_type == "First-step ComBat"){
+          if(eb){
+            min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
+            max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
             if(input$batch_selection == "All"){
-                min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
-                max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
-                                                                                                   type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
-                  geom_density() +
-                  xlim(min_x, max_x) +
-                  labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
-                  guides(color = "none")
-            }else{
-                min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
-                max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
-                                                                                                                                    type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
-                  geom_density() +
-                  xlim(min_x, max_x) +
-                  labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
-            }
-          }else{
-            if(input$batch_selection == "All"){
-              min_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
-                                                                                                        type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+              ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                    type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
                 labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
                 guides(color = "none")
             }else{
-              min_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
-                                                                                                                                        type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+              ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                                                 type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
                 labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+            }
+          }else{
+            min_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% min()
+            max_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% max()
+            if(input$batch_selection == "All"){
+              ggplot(result$eb_df %>% filter(grepl("gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                   type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                geom_density() +
+                xlim(min_x, max_x) +
+                labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                guides(color = "none")
+            }else{
+              ggplot(result$eb_df %>% filter(grepl("gamma_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                                                   type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                geom_density() +
+                xlim(min_x, max_x) +
+                labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+            }
+          }
+        }else if(result$com_family == "covfam"){
+          if(input$eb_check_type == "First-step ComBat"){
+            if(eb){
+              if(input$batch_selection == "All"){
+                  min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
+                  max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
+                  ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                     type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                    geom_density() +
+                    xlim(min_x, max_x) +
+                    labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                    guides(color = "none")
+              }else{
+                  min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
+                  max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
+                  ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                                                      type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                    geom_density() +
+                    xlim(min_x, max_x) +
+                    labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+              }
+            }else{
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                      type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                                                                                                                                      type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+              }
+            }
+          }else{
+            if(score_eb){
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                                                                                                          type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                                                                                                                                          type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+              }
+            }else{
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                                                                                                           type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                                                                                                                                           type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Gamma", y = "Density", linetype = "Estimate Type")
+              }
             }
           }
         }
@@ -453,28 +516,11 @@ comfam_shiny = function(result, after){
           }
         }
       }else{
-        min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
-        max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
         if(result$com_family == "comfam"){
-          if(input$batch_selection == "All"){
-            ggplot(result$eb_df %>% filter(grepl("^delta_*", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
-                                                                                                type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
-              geom_density() +
-              xlim(min_x, max_x) +
-              labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
-              guides(color = "none")
-          }else{
-            ggplot(result$eb_df %>% filter(grepl("^delta_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
-                                                                                                                                type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
-              geom_density() +
-              xlim(min_x, max_x) +
-              labs(x = "Delta", y = "Density", linetype = "Estimate Type")
-          }
-        }else if(result$com_family == "covfam"){
-          if(input$eb_check_type == "First-step ComBat"){
+          if(eb){
+            min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
+            max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
             if(input$batch_selection == "All"){
-              min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
               ggplot(result$eb_df %>% filter(grepl("^delta_*", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
@@ -482,8 +528,6 @@ comfam_shiny = function(result, after){
                 labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
                 guides(color = "none")
             }else{
-              min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
               ggplot(result$eb_df %>% filter(grepl("^delta_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
                 geom_density() +
@@ -492,22 +536,104 @@ comfam_shiny = function(result, after){
             }
           }else{
             if(input$batch_selection == "All"){
-              min_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
-                                                                                                        type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+              min_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% min()
+              max_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% max()
+              ggplot(result$eb_df %>% filter(grepl("delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
                 labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
                 guides(color = "none")
             }else{
-              min_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% min()
-              max_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
-                                                                                                                                        type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+              min_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% min()
+              max_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% max()
+              ggplot(result$eb_df %>% filter(grepl("delta_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
                 labs(x = "Delta", y = "Density", linetype = "Estimate Type")
+            }
+          }
+        }else if(result$com_family == "covfam"){
+          if(input$eb_check_type == "First-step ComBat"){
+            if(eb){
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^delta_*", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                    type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^delta_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                                                    type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", linetype = "Estimate Type")
+              }
+            }else{
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                      type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^delta_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                                                                                                                                      type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", linetype = "Estimate Type")
+              }
+            }
+          }else{
+            if(score_eb){
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                                                                                                          type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                                                                                                                                          type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", linetype = "Estimate Type")
+              }
+            }else{
+              if(input$batch_selection == "All"){
+                min_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                                                                                                            type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", color = "Batch", linetype = "Estimate Type") +
+                  guides(color = "none")
+              }else{
+                min_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% min()
+                max_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% max()
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type), batch == input$batch_selection) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                                                                                                                                            type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, linetype = type)) +
+                  geom_density() +
+                  xlim(min_x, max_x) +
+                  labs(x = "Delta", y = "Density", linetype = "Estimate Type")
+              }
             }
           }
         }
