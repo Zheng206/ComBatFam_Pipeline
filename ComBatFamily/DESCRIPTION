@@ -12,7 +12,8 @@ Suggests: knitr, rmarkdown, devtools, testthat, remotes
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
-    gamlss, 
+    gamlss,
+    invgamma, 
     lme4, 
     mgcv, 
     quantreg,

@@ -13,6 +13,7 @@ covfam(
   score.model = NULL,
   score.args = NULL,
   eb = TRUE,
+  score_eb = FALSE,
   robust.LS = FALSE,
   ref.batch = NULL,
   percent.var = 0.95,
@@ -44,6 +45,9 @@ location and scale model without covariates on the scores}
 \item{score.args}{List of arguments for score model}
 
 \item{eb}{If \code{TRUE}, uses ComBat model with empirical Bayes for mean
+and variance harmonization.}
+
+\item{score_eb}{If \code{TRUE}, uses ComBat model with empirical Bayes for score mean
 and variance harmonization.}
 
 \item{robust.LS}{If \code{TRUE}, uses robust location and scale estimators

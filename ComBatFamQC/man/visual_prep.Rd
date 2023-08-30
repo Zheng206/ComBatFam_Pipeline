@@ -14,7 +14,7 @@ visual_prep(
   smooth = NULL,
   smooth_int_type = "linear",
   df,
-  cov = FALSE,
+  family = "comfam",
   ...
 )
 }
@@ -37,7 +37,7 @@ visual_prep(
 
 \item{df}{Dataset to be harmonized.}
 
-\item{cov}{A boolean variable indicates whether a covfam harmonization is considered.}
+\item{family}{combat family to use, comfam or covfam.}
 
 \item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
 }
@@ -59,6 +59,8 @@ visual_prep(
 \item{red}{A parameter to highlight significant p-values in result table}
 \item{info}{A list contains input information like batch, covariates, df etc}
 \item{eb_df}{A dataframe contains empirical Bayes estimates}
+\item{com_family}{ComBat family to be considered: comfam, covfam}
+\item{harmonized_df}{Harmonized dataset}
 }
 \description{
 Prepare relevant datasets for batch/site effect visualization.

@@ -4,10 +4,12 @@
 \alias{comfam_shiny}
 \title{Batch Effect Interactive Visualization}
 \usage{
-comfam_shiny(result)
+comfam_shiny(result, after)
 }
 \arguments{
 \item{result}{A list derived from \code{visual_prep()} that contains datasets for shiny visualization.}
+
+\item{after}{A boolean variable indicating whether the dataset is before or after harmonization. Default is FALSE}
 }
 \description{
 Provide interactive batch/site effect visualization through shiny app.

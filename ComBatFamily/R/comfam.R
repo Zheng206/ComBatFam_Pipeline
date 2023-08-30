@@ -31,11 +31,12 @@
 #' \item{estimates}{List of estimates from standardization and batch effect correction}
 #' 
 #' @importFrom mgcv gam
+#' @importFrom invgamma rinvgamma
 #' @importFrom gamlss gamlss
 #' @importFrom quantreg rq
 #' @importFrom lme4 lmer
 #' @importFrom methods hasArg
-#' @importFrom stats family lm median model.matrix prcomp predict qnorm update var
+#' @importFrom stats family lm median model.matrix prcomp predict qnorm update var rnorm
 #' @importFrom CovBat covbat
 #' @importFrom neuroCombat neuroCombat
 #' @importFrom longCombat longCombat
@@ -131,13 +132,15 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   }else if(p == 1){
     gamma_hat <- do.call(rbind, as.list(by(data_stand, bat, function(x) apply(x, 2, loc))))
     delta_hat <- do.call(rbind, as.list(by(data_stand, bat, function(x) apply(x, 2, scl))))
+    eb = FALSE
   }
 
   # Empirical Bayes adjustments
   if (eb) {
     gamma_star <- NULL
     delta_star <- NULL
-
+    gamma_prior <- NULL
+    delta_prior <- NULL
     for (i in 1:nlevels(bat)) {
       n_b <- n_batches[i]
 
@@ -150,7 +153,11 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
 
       d_a <- (2 * d_var + d_bar^2)/d_var
       d_b <- (d_bar * d_var + d_bar^3)/d_var
-
+      
+      # generate prior distribution
+      g_prior <- rnorm(length(gamma_hat[i,]), g_bar, g_var)
+      d_prior <- rinvgamma(length(gamma_hat[i,]), d_a, d_b)
+      
       # adjust within batch
       bdat <- data_stand[batches[[i]],]
       g_orig <- gamma_hat[i,]
@@ -191,13 +198,21 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
 
       gamma_star <- rbind(gamma_star, g_new)
       delta_star <- rbind(delta_star, d_new)
+      gamma_prior <- rbind(gamma_prior, g_prior)
+      delta_prior <- rbind(delta_prior, d_prior)
     }
 
     rownames(gamma_star) <- rownames(gamma_hat)
     rownames(delta_star) <- rownames(delta_hat)
+    rownames(gamma_prior) <- rownames(gamma_hat)
+    rownames(delta_prior) <- rownames(delta_hat)
+    colnames(gamma_prior) <- colnames(gamma_hat)
+    colnames(delta_prior) <- colnames(delta_hat)
   } else {
     gamma_star <- gamma_hat
     delta_star <- delta_hat
+    gamma_prior <- gamma_hat
+    delta_prior <- delta_hat
   }
 
   #### Harmonize the data ####
@@ -227,6 +242,8 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
     var.pooled = var_pooled,
     gamma.hat = gamma_hat,
     delta.hat = delta_hat,
+    gamma.prior = gamma_prior,
+    delta.prior = delta_prior,
     gamma.star = gamma_star,
     delta.star = delta_star
   )
@@ -303,6 +320,8 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
   var_pooled <- object$estimates$var.pooled
   gamma_hat <- object$estimates$gamma.hat
   delta_hat <- object$estimates$delta.hat
+  gamma_prior <- object$estimates$gamma.prior
+  delta_prior <- object$estimates$delta.prior
   gamma_star <- object$estimates$gamma.star
   delta_star <- object$estimates$delta.star
   fits <- object$fits
@@ -366,7 +385,11 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
       d_var <- var(delta_hat[i,])
       d_a <- (2 * d_var + d_bar^2)/d_var
       d_b <- (d_bar * d_var + d_bar^3)/d_var
-
+      
+      # generate prior distribution
+      g_prior <- rnorm(length(gamma_hat[i,]), g_bar, g_var)
+      d_prior <- rinvgamma(length(gamma_hat[i,]), d_a, d_b)
+      
       # adjust within batch
       bdat <- data_stand[batches[[i]],]
       g_orig <- gamma_hat[i,]
@@ -407,13 +430,19 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
 
       gamma_star <- rbind(gamma_star, g_new)
       delta_star <- rbind(delta_star, d_new)
+      gamma_prior <- rbind(gamma_prior, g_prior)
+      delta_prior <- rbind(delta_prior, d_prior)
     }
 
     rownames(gamma_star) <- rownames(gamma_hat)
     rownames(delta_star) <- rownames(delta_hat)
+    rownames(gamma_prior) <- rownames(gamma_hat)
+    rownames(delta_prior) <- rownames(delta_hat)
   } else {
     gamma_star <- gamma_hat
     delta_star <- delta_hat
+    gamma_prior <- gamma_hat
+    delta_prior <- delta_hat
   }
 
   #### Harmonize the data ####
@@ -444,6 +473,8 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
     var.pooled = var_pooled,
     gamma.hat = gamma_hat,
     delta.hat = delta_hat,
+    gamma.prior = gamma_prior,
+    delta.prior = delta_prior,
     gamma.star = gamma_star,
     delta.star = delta_star
   )

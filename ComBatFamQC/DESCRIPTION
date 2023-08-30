@@ -25,5 +25,6 @@ Imports:
     bsicons,
     shinydashboard,
     methods,
+    utils,
     ComBatFamily
 Remotes: PennSIVE/ComBatFamily, 

@@ -22,6 +22,8 @@
 #' @param score.args List of arguments for score model
 #' @param eb If \code{TRUE}, uses ComBat model with empirical Bayes for mean
 #'   and variance harmonization.
+#' @param score_eb If \code{TRUE}, uses ComBat model with empirical Bayes for score mean
+#'   and variance harmonization.
 #' @param robust.LS If \code{TRUE}, uses robust location and scale estimators
 #'   for error variance and site effect parameters. Uses median and
 #'   biweight midvariance
@@ -57,7 +59,7 @@
 #' covfam(iris[,1:2], iris$Species)
 #' covfam(iris[,1:2], iris$Species, iris[3:4], lm, y ~ Petal.Length + Petal.Width)
 covfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
-                   score.model = NULL, score.args = NULL, eb = TRUE,
+                   score.model = NULL, score.args = NULL, eb = TRUE, score_eb = FALSE,
                    robust.LS = FALSE, ref.batch = NULL, percent.var = 0.95,
                    n.pc = NULL, std.var = TRUE, ...)
 {
@@ -83,10 +85,10 @@ covfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   # ComBat without covariates to remove site effect in score mean/variance
   # If score.model specified, fits that model instead
   if (is.null(score.model)) {
-    scores_com <- comfam(scores, bat, eb = FALSE, ref.batch = ref.batch)
+    scores_com <- comfam(scores, bat, eb = score_eb, ref.batch = ref.batch)
   } else {
     scores_com <- do.call(comfam, c(list(scores, bat, covar,
-                                         model = score.model, eb = FALSE,
+                                         model = score.model, eb = score_eb,
                                          ref.batch = ref.batch), score.args))
   }
   full_scores <- d_pc$x
