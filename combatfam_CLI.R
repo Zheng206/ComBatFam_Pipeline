@@ -1,5 +1,6 @@
 suppressMessages(library(argparser))
 suppressMessages(library(tidyverse))
+suppressMessages(library(dplyr))
 suppressMessages(library(readxl))
 suppressMessages(library(ComBatFamily))
 suppressMessages(library(ComBatFamQC))
@@ -29,8 +30,12 @@ p <- add_argument(p, "--score.model", help = "model for scores, defaults to NULL
 p <- add_argument(p, "--score.args", help = "list of arguments for score model, input should have the following format arg1,arg2,...", default = "NULL")
 p <- add_argument(p, "--percent.var", help = "the number of harmonized principal component scores is selected to explain this proportion of the variance", default = 0.95)
 p <- add_argument(p, "--n.pc", help = "if specified, this number of principal component scores is harmonized", default = "NULL")
-p <- add_argument(p, "--std.var", help = "If TRUE, scales variances to be equal to 1 before PCA", default = TRUE)
-p <- add_argument(p, "--outdir", short = '-o', help = "Full path (including the file name) where harmonized data should be written")
+p <- add_argument(p, "--std.var", help = "if TRUE, scales variances to be equal to 1 before PCA", default = TRUE)
+p <- add_argument(p, "--predict", help = "a boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM)", default = FALSE)
+p <- add_argument(p, "--object", help = "path to the ComBat model to be used for prediction, should have an extension of .rds", default = "NULL")
+p <- add_argument(p, "--reference", help = "path to the CSV or EXCEL file that contains dataset to be considered as the reference group", default = "NULL")
+p <- add_argument(p, "--outdir", short = '-o', help = "full path (including the file name) where harmonized data should be written")
+p <- add_argument(p, "--mout", help = "full path where ComBat model to be saved")
 argv <- parse_args(p)
 
 # Useful Function
@@ -59,7 +64,7 @@ form_gen = function(x, c, i, random, smooth, int_type){
         if(sum(grepl(x, i)) > 0){return(1)}else(return(0))
       }, USE.NAMES = FALSE)
       cov_index = sapply(colnames(c), function(x){
-        if(sum(grepl(x, i)) > 0){return(1)}else(return(0))
+        if(sum(grepl(x, i)) > 0){return(1)}else{return(0)}
       }, USE.NAMES = FALSE)
       smooth = smooth[which(smooth_index == 0)]
       c = c[which(cov_index == 0)]
@@ -85,19 +90,14 @@ if(is.na(argv$data)) stop("Missing input data") else {
   }
 }
 
-df = na.omit(df)
+
+if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
+  bat_col = as.numeric(argv$batch)
+}
 
 if(is.na(argv$features)) stop("Please identify the position of data to be harmonized") else {
   col = gsub("-",":",argv$features)
   col_vec = eval(parse(text = paste0("c(", col, ")")))
-  features = df[col_vec]
-  features = features[, apply(features, 2, function(col) { length(unique(col)) > 1 })]
-  features_col = colnames(features)
-}
-
-if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
-  bat_col = as.numeric(argv$batch)
-  batch = as.factor(df[[bat_col]])
 }
 
 if(argv$covariates == "NULL") {
@@ -106,21 +106,6 @@ if(argv$covariates == "NULL") {
 } else {
   cov_col = gsub("-",":",argv$covariates)
   cov_col = eval(parse(text = paste0("c(", cov_col, ")")))
-  char_var = cov_col[sapply(df[cov_col], function(col) is.character(col) || is.factor(col))]
-  enco_var = cov_col[sapply(df[cov_col], function(col) length(unique(col)) == 2 && all(unique(col) %in% c(0,1)))]
-  df[char_var] =  lapply(df[char_var], as.factor)
-  df[enco_var] =  lapply(df[enco_var], as.factor)
-  covariates = df[cov_col]
-  cov_var = colnames(covariates)
-}
-
-if(argv$interaction == "NULL"){interaction = eval(parse(text = argv$interaction))}else{
-  interaction_l = lapply(str_split(argv$interaction, ",")[[1]], function(x) str_split(x,  "\\*")[[1]])
-  interaction = sapply(interaction_l, function(x){
-    x1 = colnames(df)[as.numeric(x[1])]
-    x2 = colnames(df)[as.numeric(x[2])]
-    element = paste0(x1, ",", x2)
-  }, USE.NAMES = FALSE)
 }
 
 if(argv$model == "gam"){
@@ -145,22 +130,88 @@ if(argv$model == "lmer"){
     random = random_var
   }
 }else{
+  random_col = eval(parse(text = argv$random))
   random = eval(parse(text = argv$random))
 }
 
-used_col = c(col_vec, cov_col, bat_col)
-other_info = df[-used_col]
+if(argv$reference != "NULL"){
+  if(!grepl("csv$|xls$", argv$reference)) stop("Input file must be a csv or an excel file") else {
+    if(grepl("csv$", argv$reference)) reference_df = read_csv(argv$reference) else reference_df = read_excel(argv$reference)
+  }
+  reference_df = reference_df[complete.cases(reference_df[c(col_vec, bat_col, cov_col, random_col)]),]
+}
+
+if(!argv$object == "NULL"){
+  object = readRDS(argv$object)
+}
+
+obs_n = nrow(df)
+df = df[complete.cases(df[c(col_vec, bat_col, cov_col, random_col)]),]
+obs_new = nrow(df)
+print(paste0(obs_n - obs_new, " observations are dropped due to missing values."))
+
+if(argv$reference != "NULL"){
+  untouched = df %>% semi_join(reference_df)
+  new_data = df %>% anti_join(reference_df)
+}
+
+# Feature Wranggling
+features_orig = df[col_vec]
+n_orig = length(colnames(features_orig))
+features = features_orig[, apply(features_orig, 2, function(col) { length(unique(col)) > 1 })]
+n_new = length(colnames(features))
+dropped_col = NULL
+if (n_orig > n_new){
+  dropped_col = setdiff(colnames(features_orig), colnames(features))
+  print(paste0(n_orig - n_new, "univariate features dropped: ", dropped_col))
+}
+features_col = colnames(features)
+
+# Batch Wranggling
+batch = as.factor(df[[bat_col]])
+bat_var = colnames(df[bat_col])
+
+
+# Covariates Wranggling
+char_var = cov_col[sapply(df[cov_col], function(col) is.character(col) || is.factor(col))]
+enco_var = cov_col[sapply(df[cov_col], function(col) length(unique(col)) == 2 && all(unique(col) %in% c(0,1)))]
+df[char_var] =  lapply(df[char_var], as.factor)
+df[enco_var] =  lapply(df[enco_var], as.factor)
+covariates = df[cov_col]
+cov_var = colnames(covariates)
+
+# Interaction Wranggling
+if(argv$interaction == "NULL"){interaction = eval(parse(text = argv$interaction))}else{
+  interaction_l = lapply(str_split(argv$interaction, ",")[[1]], function(x) str_split(x,  "\\*")[[1]])
+  interaction = sapply(interaction_l, function(x){
+    x1 = colnames(df)[as.numeric(x[1])]
+    x2 = colnames(df)[as.numeric(x[2])]
+    element = paste0(x1, ",", x2)
+  }, USE.NAMES = FALSE)
+}
+
+used_col = c(features_col, cov_var, bat_var)
+other_info = df[-which(colnames(df) %in% used_col)]
+
+if (is.null(cov_col)){
+  visual_cov = NULL
+}else{
+  visual_cov = colnames(df[cov_col])
+}
 
 # Batch Effect Visualization
 if(argv$visualization){
   message("preparing datasets for visualization......")
   if(argv$family == "comfam"){
-    result = visual_prep(features = features_col, type = argv$model, batch = colnames(df)[bat_col], covariates = colnames(df[cov_col]), interaction = interaction, random = random, smooth = smooth, smooth_int_type = argv$int_type, df = df, family = argv$family, 
+    result = visual_prep(features = features_col, type = argv$model, batch = colnames(df)[bat_col], covariates = visual_cov, interaction = interaction, random = random, smooth = smooth, smooth_int_type = argv$int_type, df = df, family = argv$family, 
                          eb = argv$eb, 
                          robust.LS = argv$robust.LS, 
-                         ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch)
+                         ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch, 
+                         predict = argv$predict, 
+                         object = if(argv$object == "NULL") eval(parse(text = argv$object)) else object,
+                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df)
   }else{
-    result = visual_prep(features = features_col, type = argv$model, batch = colnames(df)[bat_col], covariates = colnames(df[cov_col]), interaction = interaction, random = random, smooth = smooth, smooth_int_type = argv$int_type, df = df, family = argv$family, 
+    result = visual_prep(features = features_col, type = argv$model, batch = colnames(df)[bat_col], covariates = visual_cov, interaction = interaction, random = random, smooth = smooth, smooth_int_type = argv$int_type, df = df, family = argv$family, 
                          eb = argv$eb, 
                          score_eb = argv$score_eb,
                          robust.LS = argv$robust.LS, 
@@ -169,13 +220,23 @@ if(argv$visualization){
                          score.args = if(argv$score.args == "NULL") eval(parse(text = argv$score.args)) else eval(parse(text = paste0("list(", argv$score.args, ")"))),
                          percent.var = as.numeric(argv$percent.var),
                          n.pc = if(argv$n.pc == "NULL") eval(parse(text = argv$n.pc)) else as.numeric(argv$n.pc),
-                         std.var = argv$std.var)
+                         std.var = argv$std.var,
+                         predict = argv$predict, 
+                         object = if(argv$object == "NULL") eval(parse(text = argv$object)) else object,
+                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df)
   }
+  
   
   if(!is.na(argv$outdir)){
     message("Saving harmonized data......")
     write_csv(result$harmonized_df, argv$outdir)
     message(sprintf("Results saved at %s", argv$outdir))  
+  }
+  
+  if(!is.na(argv$mout)){
+    message("Saving ComBat model......")
+    saveRDS(result$combat.object, argv$mout)
+    message(sprintf("ComBat model saved at %s", argv$mout))  
   }
   
   message("datasets are ready! Starting shiny app......")
@@ -184,68 +245,113 @@ if(argv$visualization){
 }else{
 # Run Combat
 # customize formula
-  form = form_gen(x = argv$model, c = covariates, i = interaction, random = random, smooth = smooth, int_type = argv$int_type)
-  if(argv$family == "comfam"){
+  if (is.null(covariates)){
+    form_c = NULL
+    combat_c = NULL
+  }else{
     if(argv$model == "lmer"){
-        ComBat_run = ComBatFamily::comfam(data = features,
-                                          bat = batch , 
-                                          covar = cbind(covariates, df[random]),
-                                          model = eval(parse(text = argv$model)), 
-                                          formula = as.formula(form),
-                                          eb = argv$eb,
-                                          robust.LS = argv$robust.LS, 
-                                          ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch
-        )
-      }else{
-        ComBat_run = ComBatFamily::comfam(data = features,
-                                          bat = batch , 
-                                          covar = covariates,
-                                          model = eval(parse(text = argv$model)), 
-                                          formula = as.formula(form),
-                                          eb = argv$eb,
-                                          robust.LS = argv$robust.LS, 
-                                          ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch
-        )    
-      }
+      form_c = df[cov_col]
+      combat_c = cbind(df[cov_col], df[random])
+    }else{
+      form_c = df[cov_col]
+      combat_c = df[cov_col]
+    }
+  }
+  if (argv$reference == "NULL"){
+    if (!predict){
+      form = form_gen(x = argv$model, c = form_c, i = interaction, random = random, smooth = smooth, int_type = argv$int_type)
+      if(argv$family == "comfam"){
+            ComBat_run = ComBatFamily::comfam(data = features,
+                                              bat = batch , 
+                                              covar = combat_c,
+                                              model = eval(parse(text = argv$model)), 
+                                              formula = as.formula(form),
+                                              eb = argv$eb,
+                                              robust.LS = argv$robust.LS, 
+                                              ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch
+            )
     comf_df = ComBat_run$dat.combat
     comf_df = cbind(other_info, df[bat_col], df[cov_col], comf_df)
+    comf_df = comf_df[colnames(df)]
     write_csv(comf_df, argv$outdir)
-  }else if(argv$family == "covfam"){
-    if(argv$model == "lmer"){
-      ComBat_run = ComBatFamily::covfam(data = features,
-                                      bat = batch , 
-                                      covar = cbind(covariates, df[random]),
-                                      model = eval(parse(text = argv$model)), 
-                                      formula = as.formula(form),
-                                      eb = argv$eb,
-                                      score_eb = argv$score_eb,
-                                      robust.LS = argv$robust.LS, 
-                                      ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch,
-                                      score.model = if(argv$score.model == "NULL") eval(parse(text = argv$score.model)) else argv$score.model,
-                                      score.args = if(argv$score.args == "NULL") eval(parse(text = argv$score.args)) else eval(parse(text = paste0("list(", argv$score.args, ")"))),
-                                      percent.var = as.numeric(argv$percent.var),
-                                      n.pc = if(argv$n.pc == "NULL") eval(parse(text = argv$n.pc)) else as.numeric(argv$n.pc),
-                                      std.var = argv$std.var)
-      }else{
+    }else if(argv$family == "covfam"){
         ComBat_run = ComBatFamily::covfam(data = features,
-                                          bat = batch , 
-                                          covar = covariates,
+                                        bat = batch , 
+                                        covar = combat_c,
+                                        model = eval(parse(text = argv$model)), 
+                                        formula = as.formula(form),
+                                        eb = argv$eb,
+                                        score_eb = argv$score_eb,
+                                        robust.LS = argv$robust.LS, 
+                                        ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch,
+                                        score.model = if(argv$score.model == "NULL") eval(parse(text = argv$score.model)) else argv$score.model,
+                                        score.args = if(argv$score.args == "NULL") eval(parse(text = argv$score.args)) else eval(parse(text = paste0("list(", argv$score.args, ")"))),
+                                        percent.var = as.numeric(argv$percent.var),
+                                        n.pc = if(argv$n.pc == "NULL") eval(parse(text = argv$n.pc)) else as.numeric(argv$n.pc),
+                                        std.var = argv$std.var)
+      covf_df = ComBat_run$dat.covbat
+      covf_df = cbind(other_info, df[bat_col], df[cov_col], covf_df)
+      covf_df = covf_df[colnames(df)]
+      write_csv(covf_df, argv$outdir)
+    }
+      message(sprintf("Results saved at %s", argv$outdir))
+    }else{
+      if(argv$model == "lmer"){
+        ComBat_run = predict(object = object, newdata = features, newbat = batch, newcovar = cbind(covariates, df[random]), eb = argv$eb, robust.LS = argv$robust.LS)
+      }else{
+        ComBat_run = predict(object = object, newdata = features, newbat = batch, newcovar = covariates, eb = argv$eb, robust.LS = argv$robust.LS)
+      }
+      comf_df = ComBat_run$dat.combat
+      comf_df = cbind(other_info, df[bat_col], df[cov_col], comf_df)
+      comf_df = comf_df[colnames(df)]
+      write_csv(comf_df, argv$outdir)
+      message(sprintf("Results saved at %s", argv$outdir))
+    }
+  }else{
+    reference_df[[bat_col]] = "reference"
+    df_c = rbind(reference_df, new_data)
+    df_c[[bat_col]] = as.factor(df_c[[bat_col]])
+    if (is.null(covariates)){
+      form_c = NULL
+      combat_c = NULL
+    }else{
+      if(argv$model == "lmer"){
+        form_c = df_c[cov_col]
+        combat_c = cbind(df_c[cov_col], df_c[random])
+      }else{
+        form_c = df_c[cov_col]
+        combat_c = df_c[cov_col]
+      }
+    }
+    form = form_gen(x = argv$model, c = form_c, i = interaction, random = random, smooth = smooth, int_type = argv$int_type)
+    if(family == "comfam"){
+        ComBat_run = ComBatFamily::comfam(data = df_c[features_col],
+                                          bat = df_c[[bat_col]], 
+                                          covar = combat_c,
+                                          model = eval(parse(text = argv$model)), 
+                                          formula = as.formula(form), 
+                                          ref.batch = "reference",
+                                          ...)
+      comf_df = ComBat_run$dat.combat[(nrow(reference_df)+1):nrow(df_c),]
+      comf_df = cbind(new_data[-which(colnames(df) %in% used_col)], new_data[bat_col], new_data[cov_col], comf_df)
+      comf_df = comf_df[colnames(df)]
+      comf_df = rbind(untouched, comf_df)
+      write_csv(comf_df, argv$outdir)
+      message(sprintf("Results saved at %s", argv$outdir))
+    }else{
+        ComBat_run = ComBatFamily::covfam(data = df_c[features_col],
+                                          bat = df_c[[bat_col]] , 
+                                          covar = combat_c,
                                           model = eval(parse(text = argv$model)), 
                                           formula = as.formula(form),
-                                          eb = argv$eb,
-                                          score_eb = argv$score_eb,
-                                          robust.LS = argv$robust.LS, 
-                                          ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch,
-                                          score.model = if(argv$score.model == "NULL") eval(parse(text = argv$score.model)) else argv$score.model,
-                                          score.args = if(argv$score.args == "NULL") eval(parse(text = argv$score.args)) else eval(parse(text = paste0("list(", argv$score.args, ")"))),
-                                          percent.var = as.numeric(argv$percent.var),
-                                          n.pc = if(argv$n.pc == "NULL") eval(parse(text = argv$n.pc)) else as.numeric(argv$n.pc),
-                                          std.var = argv$std.var
-        )
+                                          ref.batch = "reference",
+                                          ...)
+      covf_df = ComBat_run$dat.covbat[(nrow(reference_df)+1):nrow(df_c),]
+      covf_df = cbind(new_data[-which(colnames(df) %in% used_col)], new_data[bat_col], new_data[cov_col], covf_df)
+      covf_df = covf_df[colnames(df)]
+      covf_df = rbind(untouched, covf_df)
+      write_csv(covf_df, argv$outdir)
+      message(sprintf("Results saved at %s", argv$outdir))
     }
-    covf_df = ComBat_run$dat.covbat
-    covf_df = cbind(other_info, df[bat_col], df[cov_col], covf_df)
-    write_csv(covf_df, argv$outdir)
   }
-  message(sprintf("Results saved at %s", argv$outdir))  
 }

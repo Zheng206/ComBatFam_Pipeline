@@ -266,7 +266,7 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
 #' `predict.comfam` will estimate new batch adjustments if new batches are
 #' specified. For batches with existing estimates, the estimates from `object`
 #' are used. Harmonization targets are the same as `object` (e.g. `ref.batch`
-#' from `object` if specified).
+#' from `object` if specified). Currently only work for original ComBat and ComBat-GAM.
 #'
 #' @param object Object of class `comfam`, typically output of
 #'   \link[ComBatFamily]{comfam}
@@ -340,7 +340,6 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
   #### Standardize the data ####
   # resize batch_mod
   batch <- matrix(batch_mod[1,], n, nlevels(bat), byrow = TRUE)
-
   if (is.null(newcovar)) {
     pmod <- data.frame(I(batch))
   } else {

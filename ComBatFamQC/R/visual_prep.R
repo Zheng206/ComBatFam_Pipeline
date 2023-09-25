@@ -6,10 +6,10 @@ require(Rtsne)
 require(MDMR)
 require(mgcv)
 require(dplyr)
-require(tidyverse)
-require(tidyr)
 require(car)
+require(tidyverse)
 require(stringr)
+require(ComBatFamily)
 
 #' Batch Effect Visualization Datasets Preparation
 #'
@@ -25,6 +25,10 @@ require(stringr)
 #' @param smooth_int_type Indicates the type of interaction in `gam` models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.
 #' @param df Dataset to be harmonized.
 #' @param family combat family to use, comfam or covfam.
+#' @param ref.batch reference batch.
+#' @param predict A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).
+#' @param object Existing ComBat model.
+#' @param reference Dataset to be considered as the reference group.
 #' @param ... Additional arguments to `comfam` or `covfam` models.
 #'
 #' @return `visual_prep` returns a list containing the following components:
@@ -46,31 +50,33 @@ require(stringr)
 #' \item{eb_df}{A dataframe contains empirical Bayes estimates}
 #' \item{com_family}{ComBat family to be considered: comfam, covfam}
 #' \item{harmonized_df}{Harmonized dataset}
+#' \item{combat.object}{saved ComBat model}
 #' 
-#' @import tidyverse
-#' @import tidyr
-#' @import dplyr
 #' @import pbkrtest
 #' @import parallel
 #' @import Rtsne
 #' @import MDMR
-#' @import ComBatFamily
+#' @import tidyverse
+#' @import dplyr
 #' @import stringr
+#' @import ComBatFamily
 #' @importFrom broom tidy
 #' @importFrom mgcv gam anova.gam
 #' @importFrom gamlss gamlss
-#' @importFrom quantreg rq
 #' @importFrom lme4 lmer
 #' @importFrom methods hasArg
-#' @importFrom stats family lm median model.matrix prcomp predict qnorm update var anova as.formula coef dist fligner.test p.adjust resid na.omit bartlett.test kruskal.test
+#' @importFrom stats family lm median model.matrix prcomp predict qnorm update var anova as.formula coef dist fligner.test p.adjust resid na.omit bartlett.test kruskal.test complete.cases
 #' @importFrom car leveneTest
 #' 
 #' @export
 
-visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, family = "comfam", ...){
+visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, ...){
   # Save info
   ## Characterize/factorize categorical variables
-  df = na.omit(df)
+  obs_n = nrow(df)
+  df = df[complete.cases(df[c(features, batch, covariates, random)]),]
+  obs_new = nrow(df)
+  print(paste0(obs_n - obs_new, " observations are dropped due to missing values."))
   df[[batch]] = as.factor(df[[batch]])
   char_var = covariates[sapply(df[covariates], function(col) is.character(col) || is.factor(col))]
   enco_var = covariates[sapply(df[covariates], function(col) length(unique(col)) == 2 && all(unique(col) %in% c(0,1)))]
@@ -118,10 +124,10 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   # Summary
   summary_df = df %>% group_by(eval(parse(text = batch))) %>% summarize(count = n(), percentage = 100*count/nrow(df))
   colnames(summary_df) = c(batch, "count", "percentage (%)")
-  summary_df = summary_df %>% mutate(remove = case_when(count < 5 ~ "removed",
+  summary_df = summary_df %>% mutate(remove = case_when(count < 3 ~ "removed",
                                                        .default = "keeped"))
   batch_rm = summary_df %>% filter(remove == "removed") %>% pull(eval(parse(text = batch))) %>% droplevels()
-  print(paste0("Batch levels that contain less than 5 observations are dropped: ", length(batch_rm), " levels are droped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
+  print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are droped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
   df = df %>% filter(!eval(parse(text = batch)) %in% batch_rm) 
   df[[batch]] = df[[batch]] %>% droplevels()
   info = list("batch" = batch, "features" = features, "type" = type, "covariates" = covariates, "interaction" = interaction, "random" = random, "smooth" = smooth, "df" = df, "cov_shiny" = cov_shiny, "char_var" = char_var)
@@ -150,11 +156,14 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
       }
     }else{
       b = coef(model)
+      m_intercept = b[[1]]
       b = b[-1]
       b = b[which(!grepl(paste0(batch,"*"), names(b)))]
       if(length(b) > 1){
-        y_hat = model.matrix(model)[, which(!grepl(paste0(batch,"*|(Intercept)"), colnames(model.matrix(model))))] %*% b}else{
-          y_hat = model.matrix(model)[, which(!grepl(paste0(batch,"*|(Intercept)"), colnames(model.matrix(model))))] * b
+        y_hat = model.matrix(model)[, which(!grepl(paste0(batch,"*|(Intercept)"), colnames(model.matrix(model))))] %*% b + m_intercept}else if(length(b) == 1){
+          y_hat = model.matrix(model)[, which(!grepl(paste0(batch,"*|(Intercept)"), colnames(model.matrix(model))))] * b + m_intercept
+        }else if(length(b) == 0){
+          y_hat = rep(m_intercept, nrow(df))
         }
     }
     residual = data.frame(df[[y]] - y_hat)
@@ -198,7 +207,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     
     kr_test_df = kr_test_df %>% mutate(stat = round(stat, 2), ddf = round(ddf, 2))
     kr_test_df$p.value = sapply(kr_test_df$p.value, function(x){
-      ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+      ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
     }, USE.NAMES = FALSE)
     unique_kr = unique(kr_test_df$p.value)[unique(kr_test_df$p.value) != "<0.001"][which(as.numeric(unique(kr_test_df$p.value)[unique(kr_test_df$p.value) != "<0.001"]) < 0.05)]
   }else{
@@ -221,7 +230,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                      p.value < 0.001 ~ "***",
                                                      .default = NA))
   fk_test_df$p.value = sapply(fk_test_df$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   unique_fk = unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"][which(as.numeric(unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"]) < 0.05)]
   
@@ -235,7 +244,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                          p.value < 0.001 ~ "***",
                                                          .default = NA))
   mdmr.summary$p.value = sapply(mdmr.summary$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   mdmr.summary = mdmr.summary %>% mutate(Statistic = round(Statistic, 2),Pseudo.R2 = round(Pseudo.R2, 2))
   unique_mdmr = unique(mdmr.summary$p.value)[unique(mdmr.summary$p.value) != "<0.001"][which(as.numeric(unique(mdmr.summary$p.value)[unique(mdmr.summary$p.value) != "<0.001"]) < 0.05)]
@@ -263,7 +272,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                            p.value < 0.001 ~ "***",
                                                            .default = NA))
   anova_test_df$p.value = sapply(anova_test_df$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   unique_anova = unique(anova_test_df$p.value)[unique(anova_test_df$p.value) != "<0.001"][which(as.numeric(unique(anova_test_df$p.value)[unique(anova_test_df$p.value) != "<0.001"]) < 0.05)]
   
@@ -280,7 +289,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                                           p.value < 0.001 ~ "***",
                                                                           .default = NA))
   kw_test_df$p.value = sapply(kw_test_df$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   unique_kw = unique(kw_test_df$p.value)[unique(kw_test_df$p.value) != "<0.001"][which(as.numeric(unique(kw_test_df$p.value)[unique(kw_test_df$p.value) != "<0.001"]) < 0.05)]
   
@@ -299,7 +308,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                      p.value < 0.001 ~ "***",
                                                      .default = NA))
   lv_test_df$p.value = sapply(lv_test_df$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   unique_lv = unique(lv_test_df$p.value)[unique(lv_test_df$p.value) != "<0.001"][which(as.numeric(unique(lv_test_df$p.value)[unique(lv_test_df$p.value) != "<0.001"]) < 0.05)]
   
@@ -324,7 +333,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
                                                                           p.value < 0.001 ~ "***",
                                                                           .default = NA))
     bl_test_df$p.value = sapply(bl_test_df$p.value, function(x){
-    ifelse(x >= 0.001, sprintf("%.2f", round(x, 2)), "<0.001")
+    ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
     }, USE.NAMES = FALSE)
     unique_bl = unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"][which(as.numeric(unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"]) < 0.05)]
     }else{unique_bl = unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"][which(as.numeric(unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"]) < 0.05)]}
@@ -333,84 +342,198 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   
   
   # Empirical Estimates
-  form = form_gen(x = type, c = df[covariates], i = interaction, random = random, smooth = smooth, int_type = smooth_int_type)
-  if(family == "comfam"){
+  if (is.null(covariates)){
     if(type == "lmer"){
-      ComBat_run = ComBatFamily::comfam(data = df[features],
-                                    bat = df[[batch]], 
-                                    covar = cbind(df[cov_shiny], df[random]),
-                                    model = eval(parse(text = type)), 
-                                    formula = as.formula(form), ...)}else{
-     ComBat_run = ComBatFamily::comfam(data = df[features],
-                                    bat = df[[batch]], 
-                                    covar = cbind(df[cov_shiny]),
-                                    model = eval(parse(text = type)), 
-                                    formula = as.formula(form), ...)
-                                    }
-    gamma_hat = ComBat_run$estimates$gamma.hat
-    delta_hat = ComBat_run$estimates$delta.hat
-    #gamma_star = ComBat_run$estimates$gamma.star
-    #delta_star = ComBat_run$estimates$delta.star
-    gamma_prior = ComBat_run$estimates$gamma.prior
-    delta_prior = ComBat_run$estimates$delta.prior
-    batch_name = rownames(gamma_hat)
-    eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
-    eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
-    eb_df = lapply(1:4, function(i){
-      eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-      return(eb_df_long)
-    }) %>% bind_rows()
+      form_c = NULL
+      combat_c = df[random]
+    }else{
+      form_c = NULL
+      combat_c = NULL
+    }
   }else{
     if(type == "lmer"){
-      ComBat_run = ComBatFamily::covfam(data = df[features],
-                                      bat = df[[batch]] , 
-                                      covar = cbind(df[cov_shiny], df[random]),
-                                      model = eval(parse(text = type)), 
-                                      formula = as.formula(form),
-                                      ...)
+      form_c = df[covariates]
+      combat_c = cbind(df[cov_shiny], df[random])
     }else{
-      ComBat_run = ComBatFamily::covfam(data = df[features],
+      form_c = df[covariates]
+      combat_c = df[cov_shiny]
+    }
+  }
+  
+  if (is.null(reference)){
+    if (!predict){
+      form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth, int_type = smooth_int_type)
+      if(family == "comfam"){
+        ComBat_run = ComBatFamily::comfam(data = df[features],
+                                      bat = df[[batch]], 
+                                      covar = combat_c,
+                                      model = eval(parse(text = type)), 
+                                      formula = as.formula(form), 
+                                      ref.batch = ref.batch,
+                                      ...)
+        gamma_hat = ComBat_run$estimates$gamma.hat
+        delta_hat = ComBat_run$estimates$delta.hat
+        #gamma_star = ComBat_run$estimates$gamma.star
+        #delta_star = ComBat_run$estimates$delta.star
+        gamma_prior = ComBat_run$estimates$gamma.prior
+        delta_prior = ComBat_run$estimates$delta.prior
+        batch_name = rownames(gamma_hat)
+        eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
+        eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
+        eb_df = lapply(1:4, function(i){
+          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+          return(eb_df_long)
+        }) %>% bind_rows()
+      }else{
+        ComBat_run = ComBatFamily::covfam(data = df[features],
                                         bat = df[[batch]] , 
-                                        covar = df[cov_shiny],
+                                        covar = combat_c,
                                         model = eval(parse(text = type)), 
                                         formula = as.formula(form),
+                                        ref.batch = ref.batch,
                                         ...)
+        gamma_hat = ComBat_run$combat.out$estimates$gamma.hat
+        delta_hat = ComBat_run$combat.out$estimates$delta.hat
+        #gamma_star = ComBat_run$combat.out$estimates$gamma.star
+        #delta_star = ComBat_run$combat.out$estimates$delta.star
+        gamma_prior = ComBat_run$combat.out$estimates$gamma.prior
+        delta_prior = ComBat_run$combat.out$estimates$delta.prior
+        score_gamma_hat = ComBat_run$scores.combat$estimates$gamma.hat
+        score_delta_hat = ComBat_run$scores.combat$estimates$delta.hat
+        score_gamma_prior = ComBat_run$scores.combat$estimates$gamma.prior
+        score_delta_prior = ComBat_run$scores.combat$estimates$delta.prior
+        batch_name = rownames(gamma_hat)
+        eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
+        eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
+        eb_df = lapply(1:8, function(i){
+          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+          return(eb_df_long)
+        }) %>% bind_rows()
+      }
+    }else{
+      ComBat_run = predict(object = object, newdata = df[features], newbat = df[[batch]], newcovar = combat_c, ...)
+      gamma_hat = ComBat_run$estimates$gamma.hat
+      delta_hat = ComBat_run$estimates$delta.hat
+      gamma_prior = ComBat_run$estimates$gamma.prior
+      delta_prior = ComBat_run$estimates$delta.prior
+      batch_name = rownames(gamma_hat)
+      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
+      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
+      eb_df = lapply(1:4, function(i){
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        return(eb_df_long)
+      }) %>% bind_rows()
+      #print("need to add features")
     }
-    gamma_hat = ComBat_run$combat.out$estimates$gamma.hat
-    delta_hat = ComBat_run$combat.out$estimates$delta.hat
-    #gamma_star = ComBat_run$combat.out$estimates$gamma.star
-    #delta_star = ComBat_run$combat.out$estimates$delta.star
-    gamma_prior = ComBat_run$combat.out$estimates$gamma.prior
-    delta_prior = ComBat_run$combat.out$estimates$delta.prior
-    score_gamma_hat = ComBat_run$scores.combat$estimates$gamma.hat
-    score_delta_hat = ComBat_run$scores.combat$estimates$delta.hat
-    score_gamma_prior = ComBat_run$scores.combat$estimates$gamma.prior
-    score_delta_prior = ComBat_run$scores.combat$estimates$delta.prior
-    batch_name = rownames(gamma_hat)
-    eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
-    eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
-    eb_df = lapply(1:8, function(i){
-      eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-      return(eb_df_long)
-    }) %>% bind_rows()
+  }else{
+    reference[[batch]] = as.factor(reference[[batch]])
+    reference[char_var] =  lapply(reference[char_var], as.factor)
+    reference[enco_var] =  lapply(reference[enco_var], as.factor)
+    if(!is.null(random)){
+      for (r in random){
+        reference[[r]] = as.factor(reference[[r]])
+      }
+    }
+    untauched = df %>% semi_join(reference)
+    new_data = df %>% anti_join(reference)
+    reference[[batch]] = "reference"
+    df_c = rbind(reference, new_data)
+    df_c[[batch]] = as.factor(df_c[[batch]])
+    if (is.null(covariates)){
+      form_c = NULL
+      combat_c = NULL
+    }else{
+      if(type == "lmer"){
+        form_c = df_c[covariates]
+        combat_c = cbind(df_c[cov_shiny], df_c[random])
+      }else{
+        form_c = df_c[covariates]
+        combat_c = df_c[cov_shiny]
+      }
+    }
+    form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth, int_type = smooth_int_type)
+    if(family == "comfam"){
+      ComBat_run = ComBatFamily::comfam(data = df_c[features],
+                                        bat = df_c[[batch]], 
+                                        covar = combat_c,
+                                        model = eval(parse(text = type)), 
+                                        formula = as.formula(form), 
+                                        ref.batch = "reference",
+                                        ...)
+      gamma_hat = ComBat_run$estimates$gamma.hat
+      delta_hat = ComBat_run$estimates$delta.hat
+      #gamma_star = ComBat_run$estimates$gamma.star
+      #delta_star = ComBat_run$estimates$delta.star
+      gamma_prior = ComBat_run$estimates$gamma.prior
+      delta_prior = ComBat_run$estimates$delta.prior
+      batch_name = rownames(gamma_hat)
+      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
+      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
+      eb_df = lapply(1:4, function(i){
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        return(eb_df_long)
+      }) %>% bind_rows()
+    }else{
+      ComBat_run = ComBatFamily::covfam(data = df_c[features],
+                                        bat = df_c[[batch]] , 
+                                        covar = combat_c,
+                                        model = eval(parse(text = type)), 
+                                        formula = as.formula(form),
+                                        ref.batch = "reference",
+                                        ...)
+      gamma_hat = ComBat_run$combat.out$estimates$gamma.hat
+      delta_hat = ComBat_run$combat.out$estimates$delta.hat
+      #gamma_star = ComBat_run$combat.out$estimates$gamma.star
+      #delta_star = ComBat_run$combat.out$estimates$delta.star
+      gamma_prior = ComBat_run$combat.out$estimates$gamma.prior
+      delta_prior = ComBat_run$combat.out$estimates$delta.prior
+      score_gamma_hat = ComBat_run$scores.combat$estimates$gamma.hat
+      score_delta_hat = ComBat_run$scores.combat$estimates$delta.hat
+      score_gamma_prior = ComBat_run$scores.combat$estimates$gamma.prior
+      score_delta_prior = ComBat_run$scores.combat$estimates$delta.prior
+      batch_name = rownames(gamma_hat)
+      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
+      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
+      eb_df = lapply(1:8, function(i){
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        return(eb_df_long)
+      }) %>% bind_rows()
+    }
   }
   
   # Result
-  used_col = c(features, covariates, batch)
+  used_col = c(features, cov_shiny, batch)
   other_col = setdiff(colnames(df), used_col)
   other_info = df[other_col]
   
-  if(family == "covfam"){
-    com_family = "covfam"
-    comf_df = ComBat_run$dat.covbat
-    comf_df = cbind(other_info, df[batch], df[covariates], comf_df)
+  if (is.null(reference)){
+    if(family == "covfam"){
+      com_family = "covfam"
+      comf_df = ComBat_run$dat.covbat
+      comf_df = cbind(other_info, df[batch], df[cov_shiny], comf_df)
+    }else{
+      com_family = "comfam"
+      comf_df = ComBat_run$dat.combat
+      comf_df = cbind(other_info, df[batch], df[cov_shiny], comf_df)
+    }
   }else{
-    com_family = "comfam"
-    comf_df = ComBat_run$dat.combat
-    comf_df = cbind(other_info, df[batch], df[covariates], comf_df)
+    if(family == "covfam"){
+      com_family = "covfam"
+      comf_df = ComBat_run$dat.covbat[(nrow(reference)+1):nrow(df_c),]
+      comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
+      comf_df = comf_df[colnames(df)]
+      comf_df = rbind(untauched, comf_df)
+    }else{
+      com_family = "comfam"
+      comf_df = ComBat_run$dat.combat[(nrow(reference)+1):nrow(df_c),]
+      comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
+      comf_df = comf_df[colnames(df)]
+      comf_df = rbind(untauched, comf_df)
+    }
   }
+  comf_df = comf_df[colnames(df)]
   result = list("summary_df" = summary_df, "residual_add_df" = residual_add_df, "residual_ml_df" = residual_ml_df, "pr.feature" = pr.feature, "pca_df" = pca_df, "tsne_df" = tsne_df, "kr_test_df" = kr_test_df, "fk_test_df" = fk_test_df, "mdmr.summary" = mdmr.summary, 
-                "anova_test_df" = anova_test_df, "kw_test_df" = kw_test_df, "lv_test_df" = lv_test_df, "bl_test_df" = bl_test_df, "red" = red, "info" = info, "eb_df" = eb_df, "com_family" = com_family, "harmonized_df" = comf_df)
+                "anova_test_df" = anova_test_df, "kw_test_df" = kw_test_df, "lv_test_df" = lv_test_df, "bl_test_df" = bl_test_df, "red" = red, "info" = info, "eb_df" = eb_df, "com_family" = com_family, "harmonized_df" = comf_df, "combat.object" = ComBat_run)
   return(result)
 }
 
@@ -433,15 +556,21 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
 
 model_gen <- function(y, type, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, df){
   if(type == "lmer"){
-    if(is.null(interaction)){
-      model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)
-    }else{
-      model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+    if(!is.null(covariates)){
+      if(is.null(interaction)){
+        model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)
+      }else{
+        model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+    }else{model = lmer(as.formula(paste0(y, " ~ ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
   }else if(type == "lm"){
-    if(is.null(interaction)){
-      model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch)), data = df)
+    if(!is.null(covariates)){
+      if(is.null(interaction)){
+        model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch)), data = df)
+      }else{
+        model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)}
     }else{
-      model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)}
+      model = lm(as.formula(paste0(y, " ~ ", batch)), data = df)
+    }
   }else if(type == "gam"){
     if(is.null(interaction)){
       model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", batch)), data = df)
@@ -476,13 +605,14 @@ form_gen = function(x, c, i, random, smooth, int_type){
       if (is.null(i)){form = paste0("y ~", paste(colnames(c), collapse = "+"))}else{
         form = paste0("y ~", paste(colnames(c), collapse = "+"),  " + ", paste(i, collapse = " + "))
       }
-    }else{form = NULL}
+    }else if(length(c) == 0){
+      form = NULL}else{form = NULL}
   }else if (x == "lmer"){
     if(!is.null(c)){
       if (is.null(i)){form = paste0("y ~", paste(colnames(c), collapse = " + "),  " + ", paste("(1 |", random, ")", collapse = " + "))}else{
         form = paste0("y ~", paste(colnames(c), collapse = " + "),  " + ", paste(i, collapse = " + "), " + ", paste("(1 |", random, ")", collapse = " + "))
       }
-    }else{form = paste0("y ~", paste("(1 |", random, ")", collapse = " + "))}
+    }else if(length(c) == 0){form = paste0("y ~", paste("(1 |", random, ")", collapse = " + "))}else{form = paste0("y ~", paste("(1 |", random, ")", collapse = " + "))}
   }else if(x == "gam"){
     if (is.null(i)){form = paste0("y ~ ", paste(colnames(c), collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "))}else{
       if(length(smooth) > 0){

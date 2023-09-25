@@ -4,7 +4,7 @@
 \alias{comfam_shiny}
 \title{Batch Effect Interactive Visualization}
 \usage{
-comfam_shiny(result, after, eb, score_eb)
+comfam_shiny(result, after = FALSE, eb = TRUE, score_eb = FALSE)
 }
 \arguments{
 \item{result}{A list derived from \code{visual_prep()} that contains datasets for shiny visualization.}

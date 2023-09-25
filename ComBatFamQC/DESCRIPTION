@@ -9,22 +9,22 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
+    tidyr,
+    dplyr,
+    stringr,
+    tidyverse,
     ggplot2,
     DT,
     shiny,
-    tidyverse,
-    dplyr,
-    tidyr,
-    stringr,
     car,    broom,    pbkrtest,    parallel,    Rtsne,    MDMR,
     gamlss, 
     lme4, 
     mgcv, 
-    quantreg,
     bslib,
     bsicons,
     shinydashboard,
     methods,
     utils,
+    gamlss.dist,
     ComBatFamily
-Remotes: PennSIVE/ComBatFamily, 
+Remotes: PennSIVE/ComBatFamily

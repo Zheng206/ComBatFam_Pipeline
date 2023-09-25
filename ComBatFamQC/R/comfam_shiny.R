@@ -1,8 +1,11 @@
 require(shiny)
 require(DT)
-require(ggplot2)
+require(tidyverse)
+require(dplyr)
+require(tidyr)
 require(bslib)
 require(bsicons)
+require(ggplot2)
 require(shinydashboard)
 
 #' Batch Effect Interactive Visualization
@@ -14,18 +17,21 @@ require(shinydashboard)
 #' @param eb If \code{TRUE}, uses ComBat model with empirical Bayes for mean and variance harmonization.
 #' @param score_eb If \code{TRUE}, uses ComBat model with empirical Bayes for score mean and variance harmonization.
 #'
+#' @import tidyverse
+#' @import tidyr
+#' @import dplyr
 #' @import ggplot2
 #' @import shiny
 #' @import bsicons
 #' @import shinydashboard
-#' @import bslib 
+#' @import bslib
 #' @importFrom DT datatable formatStyle styleEqual DTOutput renderDT
 #' @importFrom stats reorder
 #' @importFrom utils write.csv
 #' 
 #' @export
 
-comfam_shiny = function(result, after, eb, score_eb){
+comfam_shiny = function(result, after = FALSE, eb = TRUE, score_eb = FALSE){
   info = result$info
   type = info$type
   df = info$df
@@ -47,16 +53,20 @@ comfam_shiny = function(result, after, eb, score_eb){
                                title = "Data Summary",
                                radioButtons("type", "Select output type", choices = c("Plot", "Table"), selected = "Plot"),
                                #radioButtons("cov_type", "Select covariates type", choices = c("numerical", "categorical"), selected = "numerical"),
-                               selectInput("cov", "Select covariate", choices = covariates, selected = covariates[1])
+                               uiOutput("cov_status")
+                               #selectInput("cov", "Select covariate", choices = covariates, selected = covariates[1])
                              )
                            ),
                            fluidRow(
                              shinydashboard::box(  
                                width = NULL,
                                title = "Harmonization",
-                               textInput("save_path", "Enter Save Path:"),
+                               textInput("save_path", "Save harmonized dataframe to:"),
                                actionButton("ComBat", "Harmonize and Save Data"),
-                               verbatimTextOutput("output_msg")
+                               verbatimTextOutput("output_msg"),
+                               textInput("model_save_path", "Save ComBat Model to:"),
+                               actionButton("ComBat_model", "Save ComBat Model"),
+                               verbatimTextOutput("output_msg_model")
                              )
                            )
           ),
@@ -145,6 +155,12 @@ comfam_shiny = function(result, after, eb, score_eb){
   }
   
   server = function(input, output, session) {
+    output$cov_status = shiny::renderUI({
+      if (!is.null(covariates)){
+        selectInput("cov", "Select covariate", choices = covariates, selected = covariates[1])
+      }
+    })
+    
     output$output = shiny::renderUI({
       if (input$type == "Plot") {
         plotOutput("plot")
@@ -171,44 +187,55 @@ comfam_shiny = function(result, after, eb, score_eb){
                                                             )
     })
     output$cov_output = shiny::renderUI({
-      if (input$type == "Plot") {
+      if (is.null(covariates)){
+        textOutput("cov_text")
+      }else if (input$type == "Plot") {
         plotOutput("cov_plot")
       } else if (input$type == "Table") {
         DT::DTOutput("cov_table")
       }
     })
+    
+    output$cov_text = shiny::renderText({
+      print("No covariate is preserved")
+    })
+    
     output$cov_plot = shiny::renderPlot({
-      if(input$cov %in% num_var){
-        ggplot(df, aes(x = eval(parse(text = input$cov)), y = reorder(as.factor(eval(parse(text = batch))), eval(parse(text = input$cov)), Fun = median), fill = eval(parse(text = batch))))+
-          geom_boxplot(alpha = 0.3) +
-          #geom_point() +
-          labs(x = input$cov, y = "Batch", fill = "Covariate") +
-          theme(plot.title = element_text(hjust = 0.5), legend.position = "none",
-                axis.text.y = element_blank(), 
-                axis.ticks.y = element_blank())
-      }else if(input$cov %in% char_var){
-        df_c = df %>% group_by(eval(parse(text = batch)), eval(parse(text = input$cov))) %>% dplyr::tally() %>% mutate(percentage = n/sum(n))
-        colnames(df_c) = c(batch, input$cov, "n", "percentage")
-        ggplot(df_c, aes(y = as.factor(eval(parse(text = batch))), x = n, fill = eval(parse(text = input$cov)))) +
-          geom_bar(stat="identity", position ="fill") +
-          #geom_text(aes(label = paste0(sprintf("%1.1f", percentage*100),"%")), position = position_fill(vjust=0.5), colour="black", size = 3) +
-          scale_fill_brewer(palette = "Pastel1") +
-          labs(x = "Percentage", y = "Batch", fill = input$cov) +
-          theme(plot.title = element_text(hjust = 0.5),
-                axis.text.y = element_blank(), 
-                axis.ticks.y = element_blank()) 
+      if (!is.null(covariates)){
+        if(input$cov %in% num_var){
+          ggplot(df, aes(x = eval(parse(text = input$cov)), y = reorder(as.factor(eval(parse(text = batch))), eval(parse(text = input$cov)), Fun = median), fill = eval(parse(text = batch))))+
+            geom_boxplot(alpha = 0.3) +
+            #geom_point() +
+            labs(x = input$cov, y = "Batch", fill = "Covariate") +
+            theme(plot.title = element_text(hjust = 0.5), legend.position = "none",
+                  axis.text.y = element_blank(), 
+                  axis.ticks.y = element_blank())
+        }else if(input$cov %in% char_var){
+          df_c = df %>% group_by(eval(parse(text = batch)), eval(parse(text = input$cov))) %>% dplyr::tally() %>% mutate(percentage = n/sum(n))
+          colnames(df_c) = c(batch, input$cov, "n", "percentage")
+          ggplot(df_c, aes(y = as.factor(eval(parse(text = batch))), x = n, fill = eval(parse(text = input$cov)))) +
+            geom_bar(stat="identity", position ="fill") +
+            #geom_text(aes(label = paste0(sprintf("%1.1f", percentage*100),"%")), position = position_fill(vjust=0.5), colour="black", size = 3) +
+            scale_fill_brewer(palette = "Pastel1") +
+            labs(x = "Percentage", y = "Batch", fill = input$cov) +
+            theme(plot.title = element_text(hjust = 0.5),
+                  axis.text.y = element_blank(), 
+                  axis.ticks.y = element_blank()) 
+        }
       }
     })
     output$cov_table =  DT::renderDT({
-      if(input$cov %in% num_var){
-        cov_summary_table = df %>% group_by(eval(parse(text = batch))) %>% summarize(min = min(eval(parse(text = input$cov))), mean = mean(eval(parse(text = input$cov))), max = max(eval(parse(text = input$cov))))
-        colnames(cov_summary_table) = c(batch, "min", "mean", "max")
-        cov_summary_table = cov_summary_table %>% mutate(mean = round(mean, 3))
-        cov_summary_table %>% DT::datatable()
-      }else if(input$cov %in% char_var){
-        cov_summary_table = df %>% group_by(eval(parse(text = batch)), eval(parse(text = input$cov))) %>% dplyr::tally() %>% mutate(percentage = 100*n/sum(n))
-        colnames(cov_summary_table) = c(batch, input$cov, "n", "percentage (%)")
-        cov_summary_table %>% mutate(`percentage (%)` = sprintf("%.3f", `percentage (%)`)) %>% DT::datatable()
+      if (!is.null(covariates)){
+        if(input$cov %in% num_var){
+          cov_summary_table = df %>% group_by(eval(parse(text = batch))) %>% summarize(min = min(eval(parse(text = input$cov))), mean = mean(eval(parse(text = input$cov))), max = max(eval(parse(text = input$cov))))
+          colnames(cov_summary_table) = c(batch, "min", "mean", "max")
+          cov_summary_table = cov_summary_table %>% mutate(mean = round(mean, 3))
+          cov_summary_table %>% DT::datatable()
+        }else if(input$cov %in% char_var){
+          cov_summary_table = df %>% group_by(eval(parse(text = batch)), eval(parse(text = input$cov))) %>% dplyr::tally() %>% mutate(percentage = 100*n/sum(n))
+          colnames(cov_summary_table) = c(batch, input$cov, "n", "percentage (%)")
+          cov_summary_table %>% mutate(`percentage (%)` = sprintf("%.3f", `percentage (%)`)) %>% DT::datatable()
+        }
       }
     })
     
@@ -218,8 +245,18 @@ comfam_shiny = function(result, after, eb, score_eb){
       write.csv(harm_df, save_path)
     })
     
+    observeEvent(input$ComBat_model,{
+      model_save_path = input$model_save_path
+      harm_model = result$combat.object
+      saveRDS(harm_model, file = model_save_path)
+    })
+    
     output$output_msg <- renderPrint({
       paste("DataFrame saved to:", input$save_path)
+    })
+    
+    output$output_msg_model <- renderPrint({
+      paste("ComBat model saved to:", input$model_save_path)
     })
     
     output$res_add = shiny::renderPlot({
@@ -276,7 +313,7 @@ comfam_shiny = function(result, after, eb, score_eb){
           min_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% min()
           max_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% max()
           if(input$batch_selection == "All"){
-            ggplot(result$eb_df %>% filter(grepl("gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+            ggplot(result$eb_df %>% filter(grepl("gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                                 type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
               geom_density() +
               xlim(min_x, max_x) +
@@ -294,7 +331,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             if(input$batch_selection == "All"){
               min_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% min()
               max_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                                     type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -313,7 +350,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             if(input$batch_selection == "All"){
               min_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% min()
               max_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
                                                                                                          type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -336,7 +373,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
             max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
             if(input$batch_selection == "All"){
-              ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                     type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -353,7 +390,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             min_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% min()
             max_x = result$eb_df %>% filter(grepl("gamma_hat", type)) %>% pull(eb_values) %>% max()
             if(input$batch_selection == "All"){
-              ggplot(result$eb_df %>% filter(grepl("gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                                    type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -373,7 +410,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                   min_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% min()
                   max_x = result$eb_df %>% filter(grepl("^gamma_*", type)) %>% pull(eb_values) %>% max()
-                  ggplot(result$eb_df %>% filter(grepl("^gamma_*", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                  ggplot(result$eb_df %>% filter(grepl("^gamma_*", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                                      type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                     geom_density() +
                     xlim(min_x, max_x) +
@@ -392,7 +429,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type)) %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "gamma_prior" ~ "EB prior",
                                                                                                       type == "gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -413,7 +450,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^score_gamma_*", type), batch != "reference") %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
                                                                                                           type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -432,7 +469,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type)) %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("score_gamma_hat", type), batch != "reference") %>% mutate(type = case_when(type == "score_gamma_prior" ~ "EB prior",
                                                                                                            type == "score_gamma_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -459,7 +496,7 @@ comfam_shiny = function(result, after, eb, score_eb){
           if(input$batch_selection == "All"){
             min_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% min()
             max_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% max()
-            ggplot(result$eb_df %>% filter(grepl("delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+            ggplot(result$eb_df %>% filter(grepl("delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                 type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
               geom_density() +
               xlim(min_x, max_x) +
@@ -479,7 +516,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             if(input$batch_selection == "All"){
               min_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% min()
               max_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("^delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -498,7 +535,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             if(input$batch_selection == "All"){
               min_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% min()
               max_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
                                                                                                         type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -521,7 +558,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
             max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
             if(input$batch_selection == "All"){
-              ggplot(result$eb_df %>% filter(grepl("^delta_*", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("^delta_*", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                   type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -538,7 +575,7 @@ comfam_shiny = function(result, after, eb, score_eb){
             if(input$batch_selection == "All"){
               min_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% min()
               max_x = result$eb_df %>% filter(grepl("delta_hat", type)) %>% pull(eb_values) %>% max()
-              ggplot(result$eb_df %>% filter(grepl("delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+              ggplot(result$eb_df %>% filter(grepl("delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                    type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                 geom_density() +
                 xlim(min_x, max_x) +
@@ -560,7 +597,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^delta_*", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^delta_*", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^delta_*", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                     type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -579,7 +616,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^delta_hat", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^delta_hat", type)) %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "delta_prior" ~ "EB prior",
                                                                                                       type == "delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -600,7 +637,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_*", type), batch != "reference") %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
                                                                                                           type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +
@@ -619,7 +656,7 @@ comfam_shiny = function(result, after, eb, score_eb){
               if(input$batch_selection == "All"){
                 min_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% min()
                 max_x = result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% pull(eb_values) %>% max()
-                ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type)) %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
+                ggplot(result$eb_df %>% filter(grepl("^score_delta_hat", type), batch != "reference") %>% mutate(type = case_when(type == "score_delta_prior" ~ "EB prior",
                                                                                                             type == "score_delta_hat" ~ "Emprical values")), aes(x = eb_values, color = batch, linetype = type)) +
                   geom_density() +
                   xlim(min_x, max_x) +

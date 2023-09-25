@@ -48,7 +48,7 @@ Using parameters estimated via \code{comfam}, apply harmonization on new data.
 \code{predict.comfam} will estimate new batch adjustments if new batches are
 specified. For batches with existing estimates, the estimates from \code{object}
 are used. Harmonization targets are the same as \code{object} (e.g. \code{ref.batch}
-from \code{object} if specified).
+from \code{object} if specified). Currently only work for original ComBat and ComBat-GAM.
 }
 \examples{
 com_out <- comfam(iris[1:75,1:2], iris$Species[1:75])

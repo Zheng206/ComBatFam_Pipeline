@@ -15,6 +15,10 @@ visual_prep(
   smooth_int_type = "linear",
   df,
   family = "comfam",
+  ref.batch = NULL,
+  predict = FALSE,
+  object = NULL,
+  reference = NULL,
   ...
 )
 }
@@ -39,6 +43,14 @@ visual_prep(
 
 \item{family}{combat family to use, comfam or covfam.}
 
+\item{ref.batch}{reference batch.}
+
+\item{predict}{A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).}
+
+\item{object}{Existing ComBat model.}
+
+\item{reference}{Dataset to be considered as the reference group.}
+
 \item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
 }
 \value{
@@ -61,6 +73,7 @@ visual_prep(
 \item{eb_df}{A dataframe contains empirical Bayes estimates}
 \item{com_family}{ComBat family to be considered: comfam, covfam}
 \item{harmonized_df}{Harmonized dataset}
+\item{combat.object}{saved ComBat model}
 }
 \description{
 Prepare relevant datasets for batch/site effect visualization.
