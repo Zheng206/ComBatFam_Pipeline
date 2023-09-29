@@ -15,7 +15,7 @@ require(shinydashboard)
 #' Provide estimated lifespan age trends of neuroimaging-derived brain structures through shiny app.
 #'
 #' @param age_list A list contains all rois' true volumes and age trend estimates.
-#' @param feature A vector of roi names.
+#' @param features A vector of roi names.
 #' @param quantile_type A vector of quantile types.
 #'
 #' @import shiny

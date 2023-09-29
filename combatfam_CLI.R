@@ -90,6 +90,7 @@ if(is.na(argv$data)) stop("Missing input data") else {
   }
 }
 
+df = data.frame(df)
 
 if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
   bat_col = as.numeric(argv$batch)
@@ -163,7 +164,7 @@ n_new = length(colnames(features))
 dropped_col = NULL
 if (n_orig > n_new){
   dropped_col = setdiff(colnames(features_orig), colnames(features))
-  print(paste0(n_orig - n_new, "univariate features dropped: ", dropped_col))
+  print(paste0(n_orig - n_new, " univariate features dropped: ", dropped_col))
 }
 features_col = colnames(features)
 

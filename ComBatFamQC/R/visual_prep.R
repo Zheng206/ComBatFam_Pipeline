@@ -235,7 +235,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   unique_fk = unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"][which(as.numeric(unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"]) < 0.05)]
   
   ## MDMR
-  D = dist(as.matrix(residual_add_df[features]))
+  D = dist(scale(as.matrix(residual_add_df[features])))
   mdmr.res = mdmr(X = as.matrix(residual_add_df[batch]), D = D)
   mdmr.summary = summary(mdmr.res)
   colnames(mdmr.summary) = c("Statistic", "Numer.DF", "Pseudo.R2", "p.value")

@@ -9,9 +9,9 @@ age_shiny(age_list, features, quantile_type)
 \arguments{
 \item{age_list}{A list contains all rois' true volumes and age trend estimates.}
 
-\item{quantile_type}{A vector of quantile types.}
+\item{features}{A vector of roi names.}
 
-\item{feature}{A vector of roi names.}
+\item{quantile_type}{A vector of quantile types.}
 }
 \description{
 Provide estimated lifespan age trends of neuroimaging-derived brain structures through shiny app.
