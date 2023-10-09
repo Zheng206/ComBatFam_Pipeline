@@ -259,7 +259,7 @@ if(argv$visualization){
     }
   }
   if (argv$reference == "NULL"){
-    if (!predict){
+    if (!argv$predict){
       form = form_gen(x = argv$model, c = form_c, i = interaction, random = random, smooth = smooth, int_type = argv$int_type)
       if(argv$family == "comfam"){
             ComBat_run = ComBatFamily::comfam(data = features,
@@ -274,7 +274,8 @@ if(argv$visualization){
     comf_df = ComBat_run$dat.combat
     comf_df = cbind(other_info, df[bat_col], df[cov_col], comf_df)
     comf_df = comf_df[colnames(df)]
-    write_csv(comf_df, argv$outdir)
+    print(head(comf_df))
+    write_csv(comf_df, paste0(argv$outdir))
     }else if(argv$family == "covfam"){
         ComBat_run = ComBatFamily::covfam(data = features,
                                         bat = batch , 
@@ -293,9 +294,9 @@ if(argv$visualization){
       covf_df = ComBat_run$dat.covbat
       covf_df = cbind(other_info, df[bat_col], df[cov_col], covf_df)
       covf_df = covf_df[colnames(df)]
-      write_csv(covf_df, argv$outdir)
+      write_csv(covf_df, paste0(argv$outdir))
     }
-      message(sprintf("Results saved at %s", argv$outdir))
+      message(sprintf("Results saved at %s", paste0(argv$outdir)))
     }else{
       if(argv$model == "lmer"){
         ComBat_run = predict(object = object, newdata = features, newbat = batch, newcovar = cbind(covariates, df[random]), eb = argv$eb, robust.LS = argv$robust.LS)
@@ -305,8 +306,8 @@ if(argv$visualization){
       comf_df = ComBat_run$dat.combat
       comf_df = cbind(other_info, df[bat_col], df[cov_col], comf_df)
       comf_df = comf_df[colnames(df)]
-      write_csv(comf_df, argv$outdir)
-      message(sprintf("Results saved at %s", argv$outdir))
+      write_csv(comf_df, paste0(argv$outdir))
+      message(sprintf("Results saved at %s", paste0(argv$outdir)))
     }
   }else{
     reference_df[[bat_col]] = "reference"
@@ -337,8 +338,8 @@ if(argv$visualization){
       comf_df = cbind(new_data[-which(colnames(df) %in% used_col)], new_data[bat_col], new_data[cov_col], comf_df)
       comf_df = comf_df[colnames(df)]
       comf_df = rbind(untouched, comf_df)
-      write_csv(comf_df, argv$outdir)
-      message(sprintf("Results saved at %s", argv$outdir))
+      write_csv(comf_df, paste0(argv$outdir))
+      message(sprintf("Results saved at %s", paste0(argv$outdir)))
     }else{
         ComBat_run = ComBatFamily::covfam(data = df_c[features_col],
                                           bat = df_c[[bat_col]] , 
@@ -351,8 +352,8 @@ if(argv$visualization){
       covf_df = cbind(new_data[-which(colnames(df) %in% used_col)], new_data[bat_col], new_data[cov_col], covf_df)
       covf_df = covf_df[colnames(df)]
       covf_df = rbind(untouched, covf_df)
-      write_csv(covf_df, argv$outdir)
-      message(sprintf("Results saved at %s", argv$outdir))
+      write_csv(covf_df, paste0(argv$outdir))
+      message(sprintf("Results saved at %s", paste0(argv$outdir)))
     }
   }
 }
