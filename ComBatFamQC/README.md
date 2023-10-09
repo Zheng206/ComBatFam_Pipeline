@@ -1,10 +1,12 @@
 # ComBatFamQC
 
-The **ComBatFamQC** package is a powerful tool designed to streamline statistical analysis and interactive visualization for harmonization quality control needs. This package is sepcifically tailored for evaluating batch effects before and after applying ComBatFamily harmonization method, and providing life span age trends of brain structures if needed. In terms of the final delivery, it will provide an interactive visualization through R shiny.
+The **ComBatFamQC** package is a powerful tool designed to streamline statistical analysis and interactive visualization for harmonization quality control needs. This package is sepcifically tailored for evaluating batch effects before and after applying ComBatFamily harmonization method, providing life span age trends of brain structures and residual data sets eliminating specific covariates' effects if needed. In terms of the final delivery, it will provide an interactive visualization through R shiny for batch effect and age trend visualization. Additionaly, it itegrated harmonization process and can provide harmonized data set, fitted combat model, residual data set, fitted regression model etc.
 
 ## Package Features
 
-The ComBatFamQC package offers the following three key functionalities:
+The ComBatFamQC package offers the following four key functionalities:
+
+1. <u>Harmonization and Visualization</u>
 
 -   **Statistical Analysis and Harmonization**: ComBatFamQC simplifies the process of performing statistical analyses to detect potential batch effects. It provides you with all relevant statistical test results for batch effect visualization and evaluation. This step also includes the harmonization process and a dataset after harmonization will be returned. 
 
@@ -17,17 +19,29 @@ The ComBatFamQC package offers the following three key functionalities:
     -   **Statistical Test**:
         -   *Batch Effect Test*: MDMR, Kenward-Roger (liner mix model), ANOVA, Kruskal-Wallis
         -   *Equality of Variance Test*: Fligner-Killeen, Levene's Test, Bartlett's Test
-    
+2. <u>Post Harmonization</u>
+
 -   **Age Trajectory** \
-    Sex adjustment and customized lower bounds and upper bounds of quantiles to look at are enabled as well.
+    Generate age trend of each brain structure (roi), adjusting sex and ICV. Customized centiles are enabled as well.
     -  **Age Trend Plots**
     -  **Age Trend Table** 
+
+-   **Residual Generation** \
+    Generate residual data set, removing specific covariates' effetcs.
+
 
 ## Installation
 
 ```{r}
 library(devtools)
 
-devtools::install_github("Zheng206/ComBatFam_Pipeline/ComBatFamQC")
+devtools::install_github("Zheng206/ComBatFam_Pipeline/ComBatFamQC", build_vignettes = TRUE)
 
+```
+
+## Tutorial
+
+```{r}
+vignette("ComBatQC")
+vignette("Post-Harmonization")
 ```
