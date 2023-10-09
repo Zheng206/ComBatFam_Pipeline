@@ -5,7 +5,7 @@ suppressMessages(library(ComBatFamQC))
 suppressMessages(library(parallel))
 
 ## Read in arguments
-p <- arg_parser("Visualizations of Lifespan age trends of neuroimaging-derived brain structures through shiny app.", hide.opts = FALSE)
+p <- arg_parser("Post-harmonization processing steps", hide.opts = FALSE)
 p <- add_argument(p, "data", help = "path to the CSV or EXCEL file that contains data to be harmonized, covariates and batch information")
 p <- add_argument(p, "--type", short = '-t', help = "post-harmonization processing type, eg: residual or age_trend", default = "age_trend")
 p <- add_argument(p, "--rois", short = '-r', help = "position of roi data(column numbers), eg: 1-5,9")

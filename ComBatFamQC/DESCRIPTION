@@ -16,7 +16,12 @@ Imports:
     ggplot2,
     DT,
     shiny,
-    car,    broom,    pbkrtest,    parallel,    Rtsne,    MDMR,
+    car,
+    broom,
+    pbkrtest,
+    parallel,
+    Rtsne,
+    MDMR,
     gamlss, 
     lme4, 
     mgcv, 
@@ -28,3 +33,10 @@ Imports:
     gamlss.dist,
     ComBatFamily
 Remotes: PennSIVE/ComBatFamily
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

@@ -1,0 +1,126 @@
+---
+title: "ComBatQC"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ComBatFamQC_harmonization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+The need for larger samples in human subjects research have led to a trend of aggregating data across multiple locations (sites). This trens is especially prevalent in neuroimaging research. However, while the larger samples promoted greater power to detect significant associations as well as better generalizability of results, multiple-site study designs also introduce heterogeneity in acquisition and processing, which might consequently impact study findings.
+
+ComBat is used as the major harmonization technique in neuroimaging and the ComBat Family further extends the original ComBat methodology to enable flexible covariate modeling, leveraging efficient R implementations of regression models. However, it remains a challenge to evaluate the performance of harmonization. ComBatFamQC provides a useful visualization tool through Rshiny for interactive batch effect diagnostics before and after harmonization. The core harmonization process is integrated in ComBatFamQC as well.
+
+The ComBatFamQC visualization includes two key functions:
+
+-   `visual_prep`: provides all relevant statistical test results for batch effect visualization and evaluation, together with harmonized data.
+-   `comfam_shiny`: generate interactive visualization through Rshiny.
+
+The ComBatFamQC includes the following harmonziation methods:
+
+-   ComBat (Johnson et al., 2007)
+-   ComBat-GAM (Pomponio et al., 2020)
+-   Longitudinal ComBat (Beer et al., 2020)
+-   CovBat(Chen et al., 2021)
+
+
+# Set up
+
+Import ComBatFamQC package and read in the data set to be harmonized. Adni data is used in the vignette for illustration. To be noticed, the data set should include at least the following columns:
+
+-   batch column
+-   feature columns (make sure univariate column is excluded)
+-   covariate columns (essential for gam model)
+-   random effect column (essential for lmer model)
+
+```{r setup}
+library(ComBatFamQC)
+data(adni)
+```
+
+# Harmonization and Visualization
+
+There are two types of harmonization process users can choose from:
+
+-   harmonize from scratch
+-   harmonize new data to existing data:
+    -   predict from existing combat model (works only for original ComBat and ComBat-GAM)
+    -   harmonize new data to existing reference data
+    
+## Harmonize from Scratch
+
+Specify parameters carefully based on the harmonization method to be applied.
+
+### Original ComBat
+```{r, eval=FALSE}
+features = colnames(adni)[c(8:69)]
+covariates = c("timedays", "AGE", "SEX", "DIAGNOSIS")
+interaction = c("timedays*DIAGNOSIS")
+batch = "manufac"
+result_orig = visual_prep(type = "lm", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = NULL, random = NULL, df = adni)
+comfam_shiny(result_orig)
+
+# save harmonized data
+write_csv(result_orig$harmonized_df, "path/to/save/harmonized.csv")
+
+# save combat model
+writeRDS(result_orig$combat.object, "path/to/save/combat_model.rds")
+```
+
+### Longitudinal ComBat
+```{r, eval=FALSE}
+result_lmer = visual_prep(type = "lmer", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = NULL, random = "subid", df = adni)
+comfam_shiny(result_lmer)
+```
+
+### ComBat-GAM
+```{r, eval=FALSE}
+result_gam = visual_prep(type = "gam", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = "AGE", df = adni)
+comfam_shiny(result_gam)
+```
+
+### CovBat
+```{r, eval=FALSE}
+result_cov = visual_prep(type = "gam", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = "AGE", df = adni, family = "covfam")
+comfam_shiny(result_cov)
+```
+
+## Harmonize New Data to Existing Data
+
+### from ComBat Model
+
+Specify `predict` parameter to be TRUE and `object` parameter to be saved ComBat model.
+
+```{r, eval=FALSE}
+combat_model = result_gam$combat.object
+result_1 = visual_prep(type = "gam", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = "AGE", df = sub_df, predict = TRUE, object = combat_model)
+```
+
+### from Reference Data
+
+Specify `reference` parameter to be saved reference data. To be noticed, the reference data should have identical columns as the new data and the new data should contain reference data as its sub sample.
+
+```{r, eval=FALSE}
+# harmonize reference data
+reference_site = adni %>% group_by(site) %>% summarize(count = n()) %>% arrange(desc(count)) %>% pull(site) %>% head(30)
+reference_df = adni %>% filter(site %in% reference_site)
+features = colnames(df)[c(8:69)]
+covariates = c("timedays", "AGE", "SEX", "DIAGNOSIS")
+interaction = c("timedays*DIAGNOSIS")
+batch = "site"
+result = visual_prep(type = "lmer", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = NULL, random = "subid", df = reference_df)
+comfam_shiny(result)
+
+# harmonize new data to the reference data
+result_new = visual_prep(type = "lmer", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = NULL, random = "subid", df = adni, reference = result$harmonized_df)
+comfam_shiny(result_new)
+```
