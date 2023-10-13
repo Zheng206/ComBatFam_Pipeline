@@ -105,7 +105,7 @@ age_shiny = function(age_list, features, quantile_type){
           return(sub_age)
         }) %>% bind_rows()
         age_table[["PercentageChange (%)"]] = c(NA, 100*diff(age_table$AverageVolume)/na.omit(lag(age_table$AverageVolume)))
-        age_table = age_table %>% mutate(Age = sprintf("%.3f", Age),
+        age_table = age_table %>% mutate(Age = sprintf("%.0f", Age),
                                          AverageVolume = sprintf("%.3f", AverageVolume),
                                          `PercentageChange (%)` = sprintf("%.3f", `PercentageChange (%)`))
       }else if(input$sex == "Male"){
@@ -117,7 +117,7 @@ age_shiny = function(age_list, features, quantile_type){
           return(sub_age)
         }) %>% bind_rows()
         age_table[["PercentageChange (%)"]] = c(NA, 100*diff(age_table$AverageVolume)/na.omit(lag(age_table$AverageVolume)))
-        age_table = age_table %>% mutate(Age = sprintf("%.3f", Age),
+        age_table = age_table %>% mutate(Age = sprintf("%.0f", Age),
                                          AverageVolume = sprintf("%.3f", AverageVolume),
                                          `PercentageChange (%)` = sprintf("%.3f", `PercentageChange (%)`))
       }else if(input$sex == "Female vs. Male (Only for visualization)"){
@@ -136,7 +136,7 @@ age_shiny = function(age_list, features, quantile_type){
         age_table = cbind(age_table_F, age_table_M[c("AverageVolume_M")])
         age_table[["PercentageChange_F (%)"]] = c(NA, 100*diff(age_table$AverageVolume_F)/na.omit(lag(age_table$AverageVolume_F)))
         age_table[["PercentageChange_M (%)"]] = c(NA, 100*diff(age_table$AverageVolume_M)/na.omit(lag(age_table$AverageVolume_M)))
-        age_table = age_table %>% mutate(Age = sprintf("%.3f", Age),
+        age_table = age_table %>% mutate(Age = sprintf("%.0f", Age),
                                          AverageVolume_F = sprintf("%.3f", AverageVolume_F),
                                          AverageVolume_M = sprintf("%.3f", AverageVolume_M),
                                          `PercentageChange_F (%)` = sprintf("%.3f", `PercentageChange_F (%)`),

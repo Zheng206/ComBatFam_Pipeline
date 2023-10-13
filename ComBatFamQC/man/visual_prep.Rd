@@ -31,13 +31,15 @@ visual_prep(
 
 \item{covariates}{Name of covariates supplied to \code{model}.}
 
-\item{interaction}{Expression of interaction terms supplied to \code{model} (eg: "age*diagnosis").}
+\item{interaction}{Expression of interaction terms supplied to \code{model} (eg: "age,diagnosis").}
 
 \item{random}{Variable name of a random effect in linear mixed effect model.}
 
 \item{smooth}{Variable name that requires a smooth function.}
 
-\item{smooth_int_type}{Indicates the type of interaction in \code{gam} models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.}
+\item{smooth_int_type}{Indicates the type of interaction in \code{gam} models. By default, smooth_int_type is set to be "linear", representing linear interaction terms.
+"categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth),
+"tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.}
 
 \item{df}{Dataset to be harmonized.}
 

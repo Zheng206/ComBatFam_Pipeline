@@ -7,7 +7,6 @@
 residual_gen(
   type,
   features,
-  batch,
   covariates,
   interaction = NULL,
   random = NULL,
@@ -24,8 +23,6 @@ residual_gen(
 
 \item{features}{Features/rois to extract residuals from. \emph{n x p} data frame or matrix of observations where \emph{p} is the number of features and \emph{n} is the number of subjects.}
 
-\item{batch}{Factor indicating batch (often equivalent to site or scanner).}
-
 \item{covariates}{Name of covariates supplied to \code{model}.}
 
 \item{interaction}{Expression of interaction terms supplied to \code{model} (eg: "age*diagnosis").}
@@ -38,7 +35,7 @@ residual_gen(
 
 \item{df}{Harmonized dataset to extract residuals from.}
 
-\item{rm}{variables to remove effects from (apart from batch).}
+\item{rm}{variables to remove effects from.}
 
 \item{model}{A boolean variable indicating whether an existing model is to be used.}
 

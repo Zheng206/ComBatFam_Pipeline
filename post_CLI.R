@@ -5,7 +5,7 @@ suppressMessages(library(ComBatFamQC))
 suppressMessages(library(parallel))
 
 ## Read in arguments
-p <- arg_parser("Post-harmonization processing steps", hide.opts = FALSE)
+p <- arg_parser("Post-harmonization processing step", hide.opts = FALSE)
 p <- add_argument(p, "data", help = "path to the CSV or EXCEL file that contains data to be harmonized, covariates and batch information")
 p <- add_argument(p, "--type", short = '-t', help = "post-harmonization processing type, eg: residual or age_trend", default = "age_trend")
 p <- add_argument(p, "--rois", short = '-r', help = "position of roi data(column numbers), eg: 1-5,9")
@@ -20,7 +20,6 @@ p <- add_argument(p, "--sigma", help = "An indicator of whether to smooth age va
 p <- add_argument(p, "--nu", short = '-n', help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the nu formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
 p <- add_argument(p, "--tau", short = '-t', help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the tau formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
 p <- add_argument(p, "--covariates", short = '-c', help = "position of covariates (column numbers)", default = "NULL")
-p <- add_argument(p, "--batch", short = '-b', help = "position of batch column (column number)")
 p <- add_argument(p, "--model", short = '-m', help = "select the model function for harmonization, eg: lm, gam", default = "lm")
 p <- add_argument(p, "--smooth", short = '-s', help = "provide the variables that require a smooth function", default = "NULL")
 p <- add_argument(p, "--interaction", help = "specify the interaction terms in the format of col_index1*col_index2, eg 2*3,11*12", default = "NULL")
@@ -74,10 +73,6 @@ if(argv$type == "age_trend"){
   
   ComBatFamQC::age_shiny(age_list, features, quantile_type)
 }else if(argv$type == "residual"){
-  if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
-    bat_col = as.numeric(argv$batch)
-    batch = colnames(df)[bat_col]
-  }
   
   if(argv$covariates == "NULL") {
     cov_col = NULL
@@ -133,7 +128,7 @@ if(argv$type == "age_trend"){
   }
   
   # Generate residuals
-  result = residual_gen(type = argv$model, features = features, batch = batch, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = argv$int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path)
+  result = residual_gen(type = argv$model, features = features, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = argv$int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path)
   
   if(!is.na(argv$outdir)){
     message("Saving residual data......")

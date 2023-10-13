@@ -19,10 +19,12 @@ require(ComBatFamily)
 #' @param features Features to be harmonized. \emph{n x p} data frame or matrix of observations where \emph{p} is the number of features and \emph{n} is the number of subjects.
 #' @param batch Factor indicating batch (often equivalent to site or scanner).
 #' @param covariates Name of covariates supplied to `model`.
-#' @param interaction Expression of interaction terms supplied to `model` (eg: "age*diagnosis").
+#' @param interaction Expression of interaction terms supplied to `model` (eg: "age,diagnosis").
 #' @param random Variable name of a random effect in linear mixed effect model.
 #' @param smooth Variable name that requires a smooth function.
-#' @param smooth_int_type Indicates the type of interaction in `gam` models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.
+#' @param smooth_int_type Indicates the type of interaction in `gam` models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. 
+#' "categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth), 
+#' "tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.
 #' @param df Dataset to be harmonized.
 #' @param family combat family to use, comfam or covfam.
 #' @param ref.batch reference batch.
@@ -103,8 +105,14 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
         element = lapply(interaction, function(x) str_split(x,",")[[1]])
         smooth_element = lapply(element, function(x) x[which(x %in% smooth)])
         categorical_element = lapply(1:length(element), function(i) setdiff(element[[i]], smooth_element[[i]]))
-        interaction = lapply(1:length(element), function(i) paste0("s(", smooth_element[[i]], ", by = ", categorical_element[[i]], ")")) %>% unlist()
+        interaction = lapply(1:length(element), function(i) {
+          if(length(smooth_element[[i]]) == 0){paste0(element[[i]], collapse = ":")}else{
+          paste0("s(", smooth_element[[i]], ", by = ", categorical_element[[i]], ")")}
+          }) %>% unlist()
         smooth = setdiff(smooth, unique(unlist(smooth_element)))
+        if(length(smooth == 0)){
+          smooth = NULL
+        }
       }else if(smooth_int_type == "factor-smooth"){
         interaction = paste("s(", interaction, ", bs = 'fs')")
         smooth_index = sapply(smooth, function(x){
@@ -114,9 +122,17 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
           if(sum(grepl(x, interaction)) > 0){return(1)}else(return(0))
         }, USE.NAMES = FALSE)
         smooth = smooth[which(smooth_index == 0)]
+        if(length(smooth) == 0){smooth = NULL}
         covariates = covariates[which(cov_index == 0)]
       }else if(smooth_int_type == "tensor"){
         interaction = paste("ti(", interaction, ")")
+      }else if(smooth_int_type == "smooth-smooth"){
+        interaction = paste("s(", interaction, ")")
+        smooth_index = sapply(smooth, function(x){
+          if(sum(grepl(x, interaction)) > 0){return(1)}else(return(0))
+        }, USE.NAMES = FALSE)
+        smooth = smooth[which(smooth_index == 0)]
+        if(length(smooth) == 0){smooth = NULL}
       }
     }else if(type == "lm"){interaction = gsub(",", ":", interaction)}
   }
@@ -555,32 +571,62 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
 #' @export
 
 model_gen <- function(y, type, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, df){
-  if(type == "lmer"){
-    if(!is.null(covariates)){
-      if(is.null(interaction)){
-        model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)
+  if(!is.null(batch)){
+    if(type == "lmer"){
+      if(!is.null(covariates)){
+        if(is.null(interaction)){
+          model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)
+        }else{
+          model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+      }else{model = lmer(as.formula(paste0(y, " ~ ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+    }else if(type == "lm"){
+      if(!is.null(covariates)){
+        if(is.null(interaction)){
+          model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch)), data = df)
+        }else{
+          model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)}
       }else{
-        model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
-    }else{model = lmer(as.formula(paste0(y, " ~ ", batch, " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
-  }else if(type == "lm"){
-    if(!is.null(covariates)){
+        model = lm(as.formula(paste0(y, " ~ ", batch)), data = df)
+      }
+    }else if(type == "gam"){
       if(is.null(interaction)){
-        model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", batch)), data = df)
+        model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", batch)), data = df)
       }else{
-        model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)}
-    }else{
-      model = lm(as.formula(paste0(y, " ~ ", batch)), data = df)
+        if(length(smooth) > 0){
+          model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)
+        }else{
+          model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)
+          }
+        }
     }
-  }else if(type == "gam"){
-    if(is.null(interaction)){
-      model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", batch)), data = df)
-    }else{
-      if(length(smooth) > 0){
-        model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)
+  }else{
+    if(type == "lmer"){
+      if(!is.null(covariates)){
+        if(is.null(interaction)){
+          model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)
+        }else{
+          model = lmer(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+      }else{model = lmer(as.formula(paste0(y, " ~ ", paste("(1 |", random, ")", collapse = " + "))), data = df)}
+    }else if(type == "lm"){
+      if(!is.null(covariates)){
+        if(is.null(interaction)){
+          model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "))), data = df)
+        }else{
+          model = lm(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "))), data = df)}
       }else{
-        model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "), " + ", batch)), data = df)
+        model = lm(as.formula(paste0(y, " ~ 1")), data = df)
+      }
+    }else if(type == "gam"){
+      if(is.null(interaction)){
+        model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "))), data = df)
+      }else{
+        if(length(smooth) > 0){
+          model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste("s(", smooth, ")", collapse = " + "), " + ", paste(interaction, collapse = " + "))), data = df)
+        }else{
+          model = gam(as.formula(paste0(y, " ~ ", paste(covariates, collapse = " + "), " + ", paste(interaction, collapse = " + "))), data = df)
         }
       }
+    }
   }
   return(model)
 }
