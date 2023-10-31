@@ -20,7 +20,7 @@ p <- add_argument(p, "--batch", short = '-b', help = "position of batch column (
 p <- add_argument(p, "--model", short = '-m', help = "select the model function for harmonization, eg: lm, gam", default = "lm")
 p <- add_argument(p, "--smooth", short = '-s', help = "provide the variables that require a smooth function", default = "NULL")
 p <- add_argument(p, "--interaction", help = "specify the interaction terms in the format of col_index1*col_index2, eg 2*3,11*12", default = "NULL")
-p <- add_argument(p, "--int_type", help = "specify an interaction type for gam models, eg: linear, factor-smooth, tensor, smooth-smooth", default = "linear")
+p <- add_argument(p, "--int_type", help = "specify an interaction type for gam models, eg: linear, categorical-continuous, factor-smooth, tensor, smooth-smooth", default = "linear")
 p <- add_argument(p, "--random", short = '-r', help = "specify the random intercept-effects", default = "NULL")
 p <- add_argument(p, "--eb", help = "whether to use ComBat model with empirical Bayes for mean and variance", default = TRUE)
 p <- add_argument(p, "--score_eb", help = "whether to use ComBat model with empirical Bayes for score mean and variance", default = FALSE)
@@ -355,5 +355,11 @@ if(argv$visualization){
       write_csv(covf_df, paste0(argv$outdir))
       message(sprintf("Results saved at %s", paste0(argv$outdir)))
     }
+    
+  }
+  if(!is.na(argv$mout)){
+    message("Saving ComBat model......")
+    saveRDS(ComBat_run, argv$mout)
+    message(sprintf("ComBat model saved at %s", argv$mout))  
   }
 }
