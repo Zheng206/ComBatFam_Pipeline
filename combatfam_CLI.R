@@ -36,6 +36,7 @@ p <- add_argument(p, "--object", help = "path to the ComBat model to be used for
 p <- add_argument(p, "--reference", help = "path to the CSV or EXCEL file that contains dataset to be considered as the reference group", default = "NULL")
 p <- add_argument(p, "--outdir", short = '-o', help = "full path (including the file name) where harmonized data should be written")
 p <- add_argument(p, "--mout", help = "full path where ComBat model to be saved")
+p <- add_argument(p, "--cores", help = "number of cores used for paralleling computing, please provide a numeric value", default = "all")
 argv <- parse_args(p)
 
 # Useful Function
@@ -210,7 +211,8 @@ if(argv$visualization){
                          ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch, 
                          predict = argv$predict, 
                          object = if(argv$object == "NULL") eval(parse(text = argv$object)) else object,
-                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df)
+                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df,
+                         cores = if(argv$cores == "all") detectCores() else as.numeric(argv$cores))
   }else{
     result = visual_prep(features = features_col, type = argv$model, batch = colnames(df)[bat_col], covariates = visual_cov, interaction = interaction, random = random, smooth = smooth, smooth_int_type = argv$int_type, df = df, family = argv$family, 
                          eb = argv$eb, 
@@ -224,7 +226,8 @@ if(argv$visualization){
                          std.var = argv$std.var,
                          predict = argv$predict, 
                          object = if(argv$object == "NULL") eval(parse(text = argv$object)) else object,
-                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df)
+                         reference = if(argv$reference == "NULL") eval(parse(text = argv$reference)) else reference_df,
+                         cores = if(argv$cores == "all") detectCores() else as.numeric(argv$cores))
   }
   
   

@@ -19,6 +19,7 @@ visual_prep(
   predict = FALSE,
   object = NULL,
   reference = NULL,
+  cores = detectCores(),
   ...
 )
 }
@@ -52,6 +53,8 @@ visual_prep(
 \item{object}{Existing ComBat model.}
 
 \item{reference}{Dataset to be considered as the reference group.}
+
+\item{cores}{number of cores used for parallel computing.}
 
 \item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
 }

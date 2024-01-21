@@ -15,7 +15,8 @@ residual_gen(
   df,
   rm = NULL,
   model = FALSE,
-  model_path = NULL
+  model_path = NULL,
+  cores = detectCores()
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ residual_gen(
 \item{model}{A boolean variable indicating whether an existing model is to be used.}
 
 \item{model_path}{path to the existing model.}
+
+\item{cores}{number of cores used for parallel computing.}
 }
 \value{
 \code{residual_gen} returns a list containing the following components:

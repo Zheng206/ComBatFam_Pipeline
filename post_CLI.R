@@ -30,6 +30,7 @@ p <- add_argument(p, "--exist.model", help = "A boolean variable indicating whet
 p <- add_argument(p, "--model.path", help = "path to the existing model", default = "NULL")
 p <- add_argument(p, "--outdir", short = '-o', help = "full path (including the file name) where residual data should be written")
 p <- add_argument(p, "--mout", help = "full path where regression models to be saved")
+p <- add_argument(p, "--cores", help = "number of cores used for paralleling computing, please provide a numeric value", default = "all")
 argv <- parse_args(p)
 
 # Preprocess inputs
@@ -47,6 +48,12 @@ if(is.na(argv$rois)) stop("Please identify the position of rois.") else {
 
 features = colnames(df[col_vec])
 
+if (argv$cores == "all"){
+  cores = detectCores()
+}else{
+  cores = as.numeric(argv$cores)
+}
+
 if(argv$type == "age_trend"){
   age = argv$age
   sex = argv$sex
@@ -63,10 +70,11 @@ if(argv$type == "age_trend"){
   }
   
   # Create age_list
+  
   age_list = mclapply(1:length(features), function(w){
     age_sub = age_list_gen (sub_df = eval(parse(text = paste0("sub_df_",w))),  lq = as.numeric(argv$lowerquantile), hq = as.numeric(argv$upperquantile), mu = argv$mu, sigma = argv$sigma, nu = argv$nu, tau = argv$tau)
     return(age_sub)
-  }, mc.cores = detectCores()) 
+  }, mc.cores = cores) 
   names(age_list) = features
   
   quantile_type = c(paste0("quantile_", 100*as.numeric(argv$lowerquantile)), "median", paste0("quantile_", 100*as.numeric(argv$upperquantile)))
@@ -128,7 +136,7 @@ if(argv$type == "age_trend"){
   }
   
   # Generate residuals
-  result = residual_gen(type = argv$model, features = features, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = argv$int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path)
+  result = residual_gen(type = argv$model, features = features, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = argv$int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path, cores = cores)
   
   if(!is.na(argv$outdir)){
     message("Saving residual data......")

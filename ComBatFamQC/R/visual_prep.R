@@ -31,6 +31,7 @@ require(ComBatFamily)
 #' @param predict A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).
 #' @param object Existing ComBat model.
 #' @param reference Dataset to be considered as the reference group.
+#' @param cores number of cores used for parallel computing.
 #' @param ... Additional arguments to `comfam` or `covfam` models.
 #'
 #' @return `visual_prep` returns a list containing the following components:
@@ -72,7 +73,7 @@ require(ComBatFamily)
 #' 
 #' @export
 
-visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, ...){
+visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, cores = detectCores(), ...){
   # Save info
   ## Characterize/factorize categorical variables
   obs_n = nrow(df)
@@ -185,7 +186,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     residual = data.frame(df[[y]] - y_hat)
     colnames(residual) = y
     return(residual)
-  }, mc.cores = detectCores()) %>% bind_cols()
+  }, mc.cores = cores) %>% bind_cols()
   residual_add_df = cbind(vis_df, residual_add_df)
   
   residual_ml_df = mclapply(features, function(y){
@@ -214,7 +215,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
       kr.test = KRmodcomp(lmm1, lmm2)
       kr_df = kr.test %>% tidy() %>% filter(type == "Ftest") %>% mutate(feature = y) %>% dplyr::select(feature, stat, ndf, ddf, p.value) 
       return(kr_df)
-    }, mc.cores = detectCores()) %>% bind_rows()
+    }, mc.cores = cores) %>% bind_rows()
     kr_test_df$p.value = p.adjust(kr_test_df$p.value, method = "bonferroni", n = length(kr_test_df$p.value))
     kr_test_df = kr_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                        p.value < 0.01 & p.value >= 0.001 ~ "**",
@@ -239,7 +240,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     fk_df = FKtest %>% tidy() %>% dplyr::select(p.value) %>% mutate(feature = y)
     fk_df = fk_df[c(2,1)]
     return(fk_df)
-  }, mc.cores = detectCores()) %>% bind_rows()
+  }, mc.cores = cores) %>% bind_rows()
   fk_test_df$p.value = p.adjust(fk_test_df$p.value, method = "bonferroni", n = length(fk_test_df$p.value))
   fk_test_df = fk_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                      p.value < 0.01 & p.value >= 0.001 ~ "**",
@@ -281,7 +282,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     anova_df = data.frame(cbind(y, p[length(p)]))
     colnames(anova_df) = c("feature", "p.value")
     return(anova_df)
-  }, mc.cores = detectCores()) %>% bind_rows()
+  }, mc.cores = cores) %>% bind_rows()
   anova_test_df$p.value = p.adjust(anova_test_df$p.value, method = "bonferroni", n = length(anova_test_df$p.value))
   anova_test_df = anova_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                            p.value < 0.01 & p.value >= 0.001 ~ "**",
@@ -298,7 +299,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     kw_df = KWtest %>% tidy() %>% dplyr::select(p.value) %>% mutate(feature = y) 
     kw_df = kw_df[c(2,1)]
     return(kw_df)
-  }, mc.cores = detectCores()) %>% bind_rows()
+  }, mc.cores = cores) %>% bind_rows()
   kw_test_df$p.value = p.adjust(kw_test_df$p.value, method = "bonferroni", n = length(kw_test_df$p.value))
   kw_test_df = kw_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                                           p.value < 0.01 & p.value >= 0.001 ~ "**",
@@ -317,7 +318,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     lv_df = LVtest %>% tidy() %>% dplyr::select(p.value) %>% mutate(feature = y) 
     lv_df = lv_df[c(2,1)]
     return(lv_df)
-  }, mc.cores = detectCores()) %>% bind_rows()
+  }, mc.cores = cores) %>% bind_rows()
   lv_test_df$p.value = p.adjust(lv_test_df$p.value, method = "bonferroni", n = length(lv_test_df$p.value))
   lv_test_df = lv_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                      p.value < 0.01 & p.value >= 0.001 ~ "**",
@@ -337,7 +338,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     bl_df = BLtest %>% tidy() %>% dplyr::select(p.value) %>% mutate(feature = y) 
     bl_df = bl_df[c(2,1)]
     return(bl_df)
-  }, mc.cores = detectCores()) %>% bind_rows()}, error = function(e) {
+  }, mc.cores = cores) %>% bind_rows()}, error = function(e) {
     cat("Less than 2 observations in each group")
     bl_test_df = data.frame("feature" = NULL, "p.value" = NULL, "sig" = NULL)
     return(bl_test_df)})

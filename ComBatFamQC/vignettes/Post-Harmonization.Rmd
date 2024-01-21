@@ -44,9 +44,9 @@ In this step, we need to generate a list of data sets for all rois. Each roi's d
 ```{r, eval = FALSE}
 age_df = data.frame(age_df)
 features = colnames(age_df)[c(6:56)]
-age = "Age"
-sex = "Sex"
-icv = "DLICV_baseline"
+age = "age"
+sex = "sex"
+icv = "ICV_baseline"
 age_df[[sex]] = as.factor(age_df[[sex]])
 ```
 
@@ -65,10 +65,18 @@ for (i in 1:length(features)){
 ## Create age trend data sets for all rois
 
 ```{r, eval = FALSE}
+# For MAC users
 age_list = mclapply(1:length(features), function(w){
   age_sub = age_list_gen (sub_df = eval(parse(text = paste0("sub_df_",w))),  lq = 0.25, hq = 0.75)
   return(age_sub)
 }, mc.cores = detectCores()) 
+
+# For Windows users
+age_list = mclapply(1:length(features), function(w){
+  age_sub = age_list_gen (sub_df = eval(parse(text = paste0("sub_df_",w))),  lq = 0.25, hq = 0.75)
+  return(age_sub)
+}, mc.cores = 1) 
+
 names(age_list) = features
 
 quantile_type = c(paste0("quantile_", 100*0.25), "median", paste0("quantile_", 100*0.75))

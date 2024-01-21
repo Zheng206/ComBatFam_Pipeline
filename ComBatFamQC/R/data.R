@@ -29,7 +29,7 @@
 #'
 #' @usage data(age_df)
 #'
-#' @format \code{"age_df"} is a data frame with 712 cases (rows) and 56 variables
+#' @format \code{"age_df"} is a simulated data frame with 712 cases (rows) and 56 variables
 #'  (columns). 51 rois are included.  
 #'
 #' @keywords datasets

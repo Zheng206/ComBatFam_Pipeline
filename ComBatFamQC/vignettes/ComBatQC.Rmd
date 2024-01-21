@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-The need for larger samples in human subjects research have led to a trend of aggregating data across multiple locations (sites). This trens is especially prevalent in neuroimaging research. However, while the larger samples promoted greater power to detect significant associations as well as better generalizability of results, multiple-site study designs also introduce heterogeneity in acquisition and processing, which might consequently impact study findings.
+The need for larger samples in human subjects research have led to a trend of aggregating data across multiple locations (sites). This trend is especially prevalent in neuroimaging research. However, while the larger samples promoted greater power to detect significant associations as well as better generalizability of results, multiple-site study designs also introduce heterogeneity in acquisition and processing, which might consequently impact study findings.
 
 ComBat is used as the major harmonization technique in neuroimaging and the ComBat Family further extends the original ComBat methodology to enable flexible covariate modeling, leveraging efficient R implementations of regression models. However, it remains a challenge to evaluate the performance of harmonization. ComBatFamQC provides a useful visualization tool through Rshiny for interactive batch effect diagnostics before and after harmonization. The core harmonization process is integrated in ComBatFamQC as well.
 
@@ -51,12 +51,14 @@ data(adni)
 
 There are two types of harmonization process users can choose from:
 
--   harmonize from scratch
--   harmonize new data to existing data:
-    -   predict from existing combat model (works only for original ComBat and ComBat-GAM)
-    -   harmonize new data to existing reference data
-    
-## Harmonize from Scratch
+-   First-time Harmonization
+-   Out of Sample Harmonization
+    -   predict from existing combat model (works only for **original ComBat** and **ComBat-GAM**)
+    -   harmonize new data toward existing reference data
+
+(**Note**: For Windows users, make sure to set `cores = 1` in `visual_prep` function)
+
+## First-time Harmonization
 
 Specify parameters carefully based on the harmonization method to be applied.
 
@@ -94,7 +96,7 @@ result_cov = visual_prep(type = "gam", features = features, batch = batch, covar
 comfam_shiny(result_cov)
 ```
 
-## Harmonize New Data to Existing Data
+## Out of Sample Harmonization
 
 ### from ComBat Model
 

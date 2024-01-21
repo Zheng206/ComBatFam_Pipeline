@@ -21,6 +21,7 @@ require(stringr)
 #' @param rm variables to remove effects from.
 #' @param model A boolean variable indicating whether an existing model is to be used.
 #' @param model_path path to the existing model.
+#' @param cores number of cores used for parallel computing.
 #'
 #' @return `residual_gen` returns a list containing the following components:
 #' \item{model}{a list of regression models for all rois}
@@ -40,7 +41,7 @@ require(stringr)
 #' 
 #' 
 
-residual_gen <- function(type, features, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, rm = NULL, model = FALSE, model_path = NULL){
+residual_gen <- function(type, features, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, rm = NULL, model = FALSE, model_path = NULL, cores = detectCores()){
   obs_n = nrow(df)
   df = df[complete.cases(df[c(features, covariates, random)]),]
   obs_new = nrow(df)
@@ -96,7 +97,7 @@ residual_gen <- function(type, features, covariates, interaction = NULL, random 
     models = mclapply(features, function(y){
       model = model_gen(y = y, type = type, batch = NULL, covariates = covariates, interaction = interaction, random = random, smooth = smooth, df = df)
       return(model)
-    }, mc.cores = detectCores())
+    }, mc.cores = cores)
   }else{
     models = readRDS(model_path)
   }
@@ -114,7 +115,7 @@ residual_gen <- function(type, features, covariates, interaction = NULL, random 
         predict_y = model.matrix(models[[i]])[, which(grepl(paste0(names(rm_coef), collapse = "|"), colnames(model.matrix(models[[i]]))))] %*% t(t(unname(rm_coef)))
         residual_y = df[[features[i]]] - predict_y
         residual_y = data.frame(residual_y)
-      }, mc.cores = detectCores()) %>% bind_cols()
+      }, mc.cores = cores) %>% bind_cols()
     }else{
       df[[random]] = as.factor(df[[random]])
       residuals = mclapply(1:length(features), function(i){
@@ -136,7 +137,7 @@ residual_gen <- function(type, features, covariates, interaction = NULL, random 
         predict_y = model.matrix(models[[i]])[, which(grepl(paste0(names(rm_coef), collapse = "|"), colnames(model.matrix(models[[i]]))))] %*% t(rm_coef)
         residual_y = df[[features[i]]] - predict_y
         residual_y = data.frame(residual_y)
-      }, mc.cores = detectCores()) %>% bind_cols()
+      }, mc.cores = cores) %>% bind_cols()
     }
     colnames(residuals) = features
     residuals = cbind(other_info, residuals)

@@ -5,7 +5,7 @@
 \alias{age_df}
 \title{Age Trajectory Data}
 \format{
-\code{"age_df"} is a data frame with 712 cases (rows) and 56 variables
+\code{"age_df"} is a simulated data frame with 712 cases (rows) and 56 variables
 (columns). 51 rois are included.
 }
 \usage{
