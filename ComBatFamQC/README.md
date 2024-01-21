@@ -3,7 +3,7 @@
 The **ComBatFamQC** package is a powerful tool designed to streamline statistical analysis and interactive visualization for harmonization quality control needs. This package is sepcifically tailored for evaluating batch effects before and after applying ComBatFamily harmonization method, providing life span age trends of brain structures and residual data sets eliminating specific covariates' effects if needed. In terms of the final delivery, it will provide an interactive visualization through R shiny for batch effect and age trend visualization. Additionaly, it itegrated harmonization process and can provide harmonized data set, fitted combat model, residual data set, fitted regression model etc.
 
 ## Diagram
-![ComBatFamQC Diagram](~/Desktop/PennSIVE/Project/Harmonization_Packages/figure/diagram.png)
+![ComBatFamQC Diagram](/figure/diagram.png)
 
 ## Package Features
 
@@ -22,7 +22,7 @@ The ComBatFamQC package offers the following four key functionalities:
     -   **Statistical Test**:
         -   *Batch Effect Test*: MDMR, Kenward-Roger (liner mix model), ANOVA, Kruskal-Wallis
         -   *Equality of Variance Test*: Fligner-Killeen, Levene's Test, Bartlett's Test
-2. <u>**Post Harmonization**</u>
+2. <u>**Post-Harmonization Downstream Analysis**</u>
 
 -   **Age Trajectory** \
     Generate age trend of each brain structure (roi), adjusting sex and ICV. Customized centiles are enabled as well.
