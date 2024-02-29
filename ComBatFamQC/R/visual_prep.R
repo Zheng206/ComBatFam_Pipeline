@@ -144,7 +144,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   summary_df = summary_df %>% mutate(remove = case_when(count < 3 ~ "removed",
                                                        .default = "keeped"))
   batch_rm = summary_df %>% filter(remove == "removed") %>% pull(eval(parse(text = batch))) %>% droplevels()
-  print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are droped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
+  print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are dropped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
   df = df %>% filter(!eval(parse(text = batch)) %in% batch_rm) 
   df[[batch]] = df[[batch]] %>% droplevels()
   info = list("batch" = batch, "features" = features, "type" = type, "covariates" = covariates, "interaction" = interaction, "random" = random, "smooth" = smooth, "df" = df, "cov_shiny" = cov_shiny, "char_var" = char_var)

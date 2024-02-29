@@ -271,9 +271,11 @@ comfam_shiny = function(result, after = FALSE, eb = TRUE, score_eb = FALSE){
               axis.ticks.x = element_blank()) 
     })
     output$res_ml = shiny::renderPlot({
-      ml_mean = result$residual_ml_df %>% group_by(result$residual_ml_df[[batch]]) %>% summarize(across(features, median, .names = "mean_{.col}")) %>% ungroup()
-      colnames(ml_mean) = c(batch, colnames(ml_mean)[-1])
-      result$residual_ml_df = result$residual_ml_df %>% left_join(ml_mean, by = c(batch))
+      #ml_mean = result$residual_ml_df %>% group_by(result$residual_ml_df[[batch]]) %>% summarize(across(features, median, .names = "mean_{.col}")) %>% ungroup()
+      #colnames(ml_mean) = c(batch, colnames(ml_mean)[-1])
+      add_mean = result$residual_add_df %>% group_by(result$residual_add_df[[batch]]) %>% summarize(across(features, median, .names = "mean_{.col}")) %>% ungroup()
+      colnames(add_mean) = c(batch, colnames(add_mean)[-1])
+      result$residual_ml_df = result$residual_ml_df %>% left_join(add_mean, by = c(batch))
       ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_ml_df[[paste0("mean_",input$feature)]]), y = result$residual_ml_df[[input$feature]])) +
         geom_boxplot() +
         geom_hline(yintercept = 0, linetype = "dashed", col = "red") +

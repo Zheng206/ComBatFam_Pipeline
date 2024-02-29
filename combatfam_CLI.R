@@ -6,6 +6,7 @@ suppressMessages(library(ComBatFamily))
 suppressMessages(library(ComBatFamQC))
 suppressMessages(library(lme4))
 suppressMessages(library(mgcv))
+suppressMessages(library(parallel))
 
 ## Read in arguments
 p <- arg_parser("Apply ComBatFamily harmonization method to remove bathch effect", hide.opts = FALSE)

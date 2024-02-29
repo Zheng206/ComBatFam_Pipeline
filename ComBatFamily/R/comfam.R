@@ -64,8 +64,22 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   }
 
   # Data details and formatting
+  data <- as.matrix(data)
   n <- nrow(data)
   p <- ncol(data)
+  
+  if ((p == 1) & eb) {
+    warning("EB step skipped for univariate data.")
+    eb <- FALSE
+  }
+  
+  if (!is.null(ref.batch)) {
+    if (!(ref.batch %in% levels(bat))) {
+      stop("Reference batch must be in the batch levels")
+    }
+    ref <- bat == ref.batch
+    nref <- sum(ref)
+  }
 
   bat <- droplevels(bat)
   batch <- model.matrix(~ -1 + bat)
@@ -114,7 +128,11 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   stand_mean <- sapply(fits, predict, newdata = pmod, type = "response")
   resid_mean <- sapply(fits, predict, newdata = mod, type = "response")
 
-  var_pooled <- apply(data - resid_mean, 2, scl)*(n-1)/n
+  if (!is.null(ref.batch)) {
+    var_pooled <- apply(as.matrix((data - resid_mean)[ref,]), 2, scl) * (nref - 1)/nref
+  } else {
+    var_pooled <- apply(data - resid_mean, 2, scl) * (n - 1)/n
+  }
 
   if (hasArg(sigma.formula)) {
     sd_mat <- sapply(fits, predict, newdata = pmod, what = "sigma",
@@ -126,14 +144,10 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   data_stand <- (data-stand_mean)/sd_mat
 
   #### Obtain location and scale adjustments ####
-  if(p > 1){
-    gamma_hat <- do.call(rbind, by(data_stand, bat, function(x) apply(x, 2, loc)))
-    delta_hat <- do.call(rbind, by(data_stand, bat, function(x) apply(x, 2, scl)))
-  }else if(p == 1){
-    gamma_hat <- do.call(rbind, as.list(by(data_stand, bat, function(x) apply(x, 2, loc))))
-    delta_hat <- do.call(rbind, as.list(by(data_stand, bat, function(x) apply(x, 2, scl))))
-    eb = FALSE
-  }
+  gamma_hat <- Reduce(rbind, by(data_stand, bat, function(x) apply(x, 2, loc)))
+  delta_hat <- Reduce(rbind, by(data_stand, bat, function(x) apply(x, 2, scl)))
+  
+  rownames(gamma_hat) <- rownames(delta_hat) <- levels(bat)
 
   # Empirical Bayes adjustments
   if (eb) {
@@ -218,23 +232,20 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
   #### Harmonize the data ####
   # Remove batch effects
   data_nb <- data_stand
-  if(p > 1){
-    for (i in 1:nlevels(bat)) {
-      data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],], 2,
-                                      gamma_star[i,], "-")
-      data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],], 2,
-                                      sqrt(delta_star[i,]), "/")
-    }
-  }else if(p == 1){
-    for (i in 1:nlevels(bat)) {
-      data_nb[batches[[i]],] <- as.vector(sweep(as.matrix(data_nb[batches[[i]],]), 2,
-                                      gamma_star[i,], "-"))
-      data_nb[batches[[i]],] <- as.vector(sweep(as.matrix(data_nb[batches[[i]],]), 2,
-                                      sqrt(delta_star[i,]), "/"))
-    }
+  for (i in 1:nlevels(bat)) {
+    data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],, drop = FALSE], 2,
+                                    gamma_star[i,], "-")
+    data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],, drop = FALSE], 2,
+                                    sqrt(delta_star[i,]), "/")
   }
+  
   # Reintroduce covariate effects
   data_combat <- data_nb*sd_mat + stand_mean
+  
+  if (!is.null(ref.batch)) {
+    data_combat[ref,] <- data[ref,]
+  }
+  
 
   estimates <-  list(
     stand.mean = stand_mean,
@@ -301,9 +312,14 @@ comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
 #' max(in_pred$dat.combat - com_out$dat.combat[1:25,])
 predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
                            robust.LS = FALSE, eb = TRUE, ...) {
-  data <- newdata
+  data <- as.matrix(newdata)
   n <- nrow(data)
   p <- ncol(data)
+  
+  if ((p == 1) & eb) {
+    warning("EB step skipped for univariate data.")
+    eb <- FALSE
+  }
 
   # Specify robust location/scale estimators
   if (robust.LS) {
@@ -346,29 +362,24 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
     pmod <- data.frame(newcovar, I(batch))
   }
 
-  stand_mean <- sapply(fits, predict, newdata = pmod, type = "response")
+  stand_mean <- sapply(fits, predict, newdata = pmod, type = "response", ...)
   if (hasArg(sigma.formula)) {
     sd_mat <- sapply(fits, predict, newdata = pmod, what = "sigma",
-                     type = "response")
+                     type = "response", ...)
   } else {
-    sd_mat <- matrix(sqrt(var_pooled), n, p, byrow = TRUE)
+    sd_mat <- sapply(sqrt(var_pooled), rep, n)
   }
 
   data_stand <- (data - stand_mean)/sd_mat
 
   #### Obtain location and scale adjustments ####
   # get naive estimates for new batches
-  if(p > 1){
-    for (i in newbat_est) {
-      gamma_hat <- rbind(gamma_hat, apply(data_stand[batches[[i]],], 2, loc))
-      delta_hat <- rbind(delta_hat, apply(data_stand[batches[[i]],], 2, scl))
-    }
-  }else if(p == 1){
-    for (i in newbat_est) {
-      gamma_hat <- rbind(gamma_hat, as.list(apply(data_stand[batches[[i]],], 2, loc)))
-      delta_hat <- rbind(delta_hat, as.list(apply(data_stand[batches[[i]],], 2, scl)))
-    }
-    }
+  for (i in newbat_est) {
+    gamma_hat <- rbind(gamma_hat,
+                       apply(data_stand[batches[[i]],, drop = FALSE], 2, loc))
+    delta_hat <- rbind(delta_hat,
+                       apply(data_stand[batches[[i]],, drop = FALSE], 2, scl))
+  }
 
   rownames(gamma_hat) <- rownames(delta_hat) <- bat_levels
 
@@ -447,20 +458,11 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
   #### Harmonize the data ####
   # Remove batch effects
   data_nb <- data_stand
-  if(p > 1){
-    for (i in newbat_adj) {
-      data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],], 2,
-                                      gamma_star[i,], "-")
-      data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],], 2,
-                                      sqrt(delta_star[i,]), "/")
-    }
-  }else if(p == 1){
-    for (i in newbat_adj) {
-      data_nb[batches[[i]],] <- as.vector(sweep(as.matrix(data_nb[batches[[i]],]), 2,
-                                      gamma_star[i,], "-"))
-      data_nb[batches[[i]],] <- as.vector(sweep(as.matrix(data_nb[batches[[i]],]), 2,
-                                      sqrt(delta_star[i,]), "/"))
-    }
+  for (i in newbat_adj) {
+    data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],, drop = FALSE], 2,
+                                    gamma_star[i,], "-")
+    data_nb[batches[[i]],] <- sweep(data_nb[batches[[i]],, drop = FALSE], 2,
+                                    sqrt(delta_star[i,]), "/")
   }
 
   # Reintroduce covariate effects
