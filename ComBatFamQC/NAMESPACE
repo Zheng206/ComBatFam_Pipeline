@@ -2,8 +2,10 @@
 
 export(age_list_gen)
 export(age_shiny)
+export(combat_harm)
 export(comfam_shiny)
 export(form_gen)
+export(interaction_gen)
 export(model_gen)
 export(residual_gen)
 export(visual_prep)

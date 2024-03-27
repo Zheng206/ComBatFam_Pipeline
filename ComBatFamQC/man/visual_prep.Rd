@@ -12,15 +12,10 @@ visual_prep(
   interaction = NULL,
   random = NULL,
   smooth = NULL,
-  smooth_int_type = "linear",
+  smooth_int_type = NULL,
   df,
-  family = "comfam",
-  ref.batch = NULL,
-  predict = FALSE,
-  object = NULL,
-  reference = NULL,
   cores = detectCores(),
-  ...
+  mdmr = TRUE
 )
 }
 \arguments{
@@ -44,19 +39,9 @@ visual_prep(
 
 \item{df}{Dataset to be harmonized.}
 
-\item{family}{combat family to use, comfam or covfam.}
-
-\item{ref.batch}{reference batch.}
-
-\item{predict}{A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).}
-
-\item{object}{Existing ComBat model.}
-
-\item{reference}{Dataset to be considered as the reference group.}
-
 \item{cores}{number of cores used for parallel computing.}
 
-\item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
+\item{mdmr}{A boolean variable indicating whether to run the MDMR test. By default, it is set to TRUE.}
 }
 \value{
 \code{visual_prep} returns a list containing the following components:
@@ -64,6 +49,7 @@ visual_prep(
 \item{residual_add_df}{Residuals that might contain additive and multiplicative joint batch effects}
 \item{residual_ml_df}{Residuals that might contain multiplicative batch effect}
 \item{pr.feature}{PCA results}
+\item{pca_summary}{A dataframe containing the variance explained by Principal Components (PCs)}
 \item{pca_df}{A dataframe contains features in the form of PCs}
 \item{tsne_df}{A dataframe prepared for T-SNE plots}
 \item{kr_test_df}{A dataframe contains Kenward-Roger(KR) test results}
@@ -75,10 +61,6 @@ visual_prep(
 \item{bl_test_df}{A dataframe contains Bartlett's test results}
 \item{red}{A parameter to highlight significant p-values in result table}
 \item{info}{A list contains input information like batch, covariates, df etc}
-\item{eb_df}{A dataframe contains empirical Bayes estimates}
-\item{com_family}{ComBat family to be considered: comfam, covfam}
-\item{harmonized_df}{Harmonized dataset}
-\item{combat.object}{saved ComBat model}
 }
 \description{
 Prepare relevant datasets for batch/site effect visualization.

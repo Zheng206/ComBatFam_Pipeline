@@ -4,7 +4,7 @@
 \alias{form_gen}
 \title{ComBatFam Formula generations}
 \usage{
-form_gen(x, c, i, random, smooth, int_type)
+form_gen(x, c, i, random, smooth)
 }
 \arguments{
 \item{x}{A model function name that is used or to be used in the ComBatFamily Package (eg: "lmer", "lm").}
@@ -16,8 +16,6 @@ form_gen(x, c, i, random, smooth, int_type)
 \item{random}{Variable name of a random effect in linear mixed effect model.}
 
 \item{smooth}{Variable name that requires a smooth function.}
-
-\item{int_type}{Indicates the type of interaction in \code{gam} models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.}
 }
 \value{
 A string of formula

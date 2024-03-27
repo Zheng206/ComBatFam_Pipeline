@@ -4,16 +4,14 @@
 \alias{comfam_shiny}
 \title{Batch Effect Interactive Visualization}
 \usage{
-comfam_shiny(result, after = FALSE, eb = TRUE, score_eb = FALSE)
+comfam_shiny(result, after = FALSE, ...)
 }
 \arguments{
 \item{result}{A list derived from \code{visual_prep()} that contains datasets for shiny visualization.}
 
-\item{after}{A boolean variable indicating whether the dataset is before or after harmonization. Default is FALSE}
+\item{after}{A boolean variable indicating whether the dataset is before or after harmonization. The default value is FALSE.}
 
-\item{eb}{If \code{TRUE}, uses ComBat model with empirical Bayes for mean and variance harmonization.}
-
-\item{score_eb}{If \code{TRUE}, uses ComBat model with empirical Bayes for score mean and variance harmonization.}
+\item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
 }
 \description{
 Provide interactive batch/site effect visualization through shiny app.

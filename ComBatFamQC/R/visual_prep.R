@@ -26,19 +26,15 @@ require(ComBatFamily)
 #' "categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth), 
 #' "tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.
 #' @param df Dataset to be harmonized.
-#' @param family combat family to use, comfam or covfam.
-#' @param ref.batch reference batch.
-#' @param predict A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).
-#' @param object Existing ComBat model.
-#' @param reference Dataset to be considered as the reference group.
 #' @param cores number of cores used for parallel computing.
-#' @param ... Additional arguments to `comfam` or `covfam` models.
+#' @param mdmr A boolean variable indicating whether to run the MDMR test. By default, it is set to TRUE.
 #'
 #' @return `visual_prep` returns a list containing the following components:
 #' \item{summary_df}{Batch sample size summary}
 #' \item{residual_add_df}{Residuals that might contain additive and multiplicative joint batch effects}
 #' \item{residual_ml_df}{Residuals that might contain multiplicative batch effect}
 #' \item{pr.feature}{PCA results}
+#' \item{pca_summary}{A dataframe containing the variance explained by Principal Components (PCs)}
 #' \item{pca_df}{A dataframe contains features in the form of PCs}
 #' \item{tsne_df}{A dataframe prepared for T-SNE plots}
 #' \item{kr_test_df}{A dataframe contains Kenward-Roger(KR) test results}
@@ -50,10 +46,6 @@ require(ComBatFamily)
 #' \item{bl_test_df}{A dataframe contains Bartlett's test results}
 #' \item{red}{A parameter to highlight significant p-values in result table}
 #' \item{info}{A list contains input information like batch, covariates, df etc}
-#' \item{eb_df}{A dataframe contains empirical Bayes estimates}
-#' \item{com_family}{ComBat family to be considered: comfam, covfam}
-#' \item{harmonized_df}{Harmonized dataset}
-#' \item{combat.object}{saved ComBat model}
 #' 
 #' @import pbkrtest
 #' @import parallel
@@ -73,13 +65,17 @@ require(ComBatFamily)
 #' 
 #' @export
 
-visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = "linear", df, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, cores = detectCores(), ...){
+visual_prep <- function(type, features, batch, covariates, interaction = NULL, random = NULL, smooth = NULL, smooth_int_type = NULL, df, cores = detectCores(), mdmr = TRUE){
   # Save info
   ## Characterize/factorize categorical variables
   obs_n = nrow(df)
   df = df[complete.cases(df[c(features, batch, covariates, random)]),]
   obs_new = nrow(df)
-  print(paste0(obs_n - obs_new, " observations are dropped due to missing values."))
+  if((obs_n - obs_new) != 0){
+    print(paste0(obs_n - obs_new, " observations are dropped due to missing values."))
+  }else{
+    print("No observation is dropped due to missing values.")
+  }
   df[[batch]] = as.factor(df[[batch]])
   char_var = covariates[sapply(df[covariates], function(col) is.character(col) || is.factor(col))]
   enco_var = covariates[sapply(df[covariates], function(col) length(unique(col)) == 2 && all(unique(col) %in% c(0,1)))]
@@ -87,67 +83,45 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   df[enco_var] =  lapply(df[enco_var], as.factor)
   cov_shiny = covariates
   char_var = c(char_var, enco_var)
+  
   if(!is.null(random)){
-    #df[[random]] = as.factor(df[[random]])
     for (r in random){
       df[[r]] = as.factor(df[[r]])
     }
-  }
-  
-  if(!is.null(interaction)){
-    if(type == "lmer"){
-      #df[random] = sapply(random, function(x) as.factor(df[[x]]), USE.NAMES = FALSE)
-      interaction = gsub(",", ":", interaction)
-    }else if(type == "gam"){
-      covariates = setdiff(covariates, smooth)
-      if(smooth_int_type == "linear"){
-        interaction = gsub(",", ":", interaction)
-      }else if(smooth_int_type == "categorical-continuous"){
-        element = lapply(interaction, function(x) str_split(x,",")[[1]])
-        smooth_element = lapply(element, function(x) x[which(x %in% smooth)])
-        categorical_element = lapply(1:length(element), function(i) setdiff(element[[i]], smooth_element[[i]]))
-        interaction = lapply(1:length(element), function(i) {
-          if(length(smooth_element[[i]]) == 0){paste0(element[[i]], collapse = ":")}else{
-          paste0("s(", smooth_element[[i]], ", by = ", categorical_element[[i]], ")")}
-          }) %>% unlist()
-        smooth = setdiff(smooth, unique(unlist(smooth_element)))
-        if(length(smooth == 0)){
-          smooth = NULL
-        }
-      }else if(smooth_int_type == "factor-smooth"){
-        interaction = paste("s(", interaction, ", bs = 'fs')")
-        smooth_index = sapply(smooth, function(x){
-          if(sum(grepl(x, interaction)) > 0){return(1)}else(return(0))
-        }, USE.NAMES = FALSE)
-        cov_index = sapply(covariates, function(x){
-          if(sum(grepl(x, interaction)) > 0){return(1)}else(return(0))
-        }, USE.NAMES = FALSE)
-        smooth = smooth[which(smooth_index == 0)]
-        if(length(smooth) == 0){smooth = NULL}
-        covariates = covariates[which(cov_index == 0)]
-      }else if(smooth_int_type == "tensor"){
-        interaction = paste("ti(", interaction, ")")
-      }else if(smooth_int_type == "smooth-smooth"){
-        interaction = paste("s(", interaction, ")")
-        smooth_index = sapply(smooth, function(x){
-          if(sum(grepl(x, interaction)) > 0){return(1)}else(return(0))
-        }, USE.NAMES = FALSE)
-        smooth = smooth[which(smooth_index == 0)]
-        if(length(smooth) == 0){smooth = NULL}
-      }
-    }else if(type == "lm"){interaction = gsub(",", ":", interaction)}
   }
   
   # Summary
   summary_df = df %>% group_by(eval(parse(text = batch))) %>% summarize(count = n(), percentage = 100*count/nrow(df))
   colnames(summary_df) = c(batch, "count", "percentage (%)")
   summary_df = summary_df %>% mutate(remove = case_when(count < 3 ~ "removed",
-                                                       .default = "keeped"))
+                                                        .default = "keeped"))
   batch_rm = summary_df %>% filter(remove == "removed") %>% pull(eval(parse(text = batch))) %>% droplevels()
-  print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are dropped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
+  if(length(batch_rm) > 0){
+    print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are dropped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
+  }else{print("Batch levels that contain less than 3 observations are dropped: no batch level is dropped.")}
   df = df %>% filter(!eval(parse(text = batch)) %in% batch_rm) 
   df[[batch]] = df[[batch]] %>% droplevels()
-  info = list("batch" = batch, "features" = features, "type" = type, "covariates" = covariates, "interaction" = interaction, "random" = random, "smooth" = smooth, "df" = df, "cov_shiny" = cov_shiny, "char_var" = char_var)
+  
+  ## drop univariate features
+  features_orig = df[features]
+  n_orig = length(colnames(features_orig))
+  features_new = features_orig[, apply(features_orig, 2, function(col) { length(unique(col)) > 1 })]
+  n_new = length(colnames(features_new))
+  dropped_col = NULL
+  if (n_orig > n_new){
+    dropped_col = setdiff(colnames(features_orig), colnames(features_new))
+    print(paste0(n_orig - n_new, " univariate feature column(s) are dropped: ", dropped_col))
+  }
+  features = colnames(features_new)
+  
+  int_result = interaction_gen(type = type, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = smooth_int_type)
+  interaction_orig = interaction
+  smooth_orig = smooth
+  covariates = int_result$covariates
+  interaction = int_result$interaction
+  smooth = int_result$smooth
+  
+  info = list("batch" = batch, "features" = features, "type" = type, "covariates" = covariates, "interaction" = interaction, "random" = random, "smooth" = smooth, "df" = df, "cov_shiny" = cov_shiny, "char_var" = char_var, "smooth_int_type" = smooth_int_type, "interaction_orig" = interaction_orig, "smooth_orig" = smooth_orig)
  
    # Residual Plots
   vis_df = df[colnames(df)[!colnames(df) %in% features]]
@@ -199,6 +173,8 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   
   # PCA Plots
   pr.feature = prcomp(x = residual_add_df[features], scale = TRUE, center = TRUE)
+  variance_explained = pr.feature$sdev^2 / sum(pr.feature$sdev^2)
+  pca_summary = data.frame(Principal_Component = paste0("PC",seq_along(variance_explained)), Variance_Explained = variance_explained, Variance_Explained_Cum = cumsum(variance_explained))
   pca_df = cbind(vis_df, pr.feature$x)
   
   # T-SNE Plots
@@ -220,7 +196,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     kr_test_df = kr_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                        p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                        p.value < 0.001 ~ "***",
-                                                       .default = NA))
+                                                       .default = NA)) %>% mutate(p.value.raw = p.value)
     
     kr_test_df = kr_test_df %>% mutate(stat = round(stat, 2), ddf = round(ddf, 2))
     kr_test_df$p.value = sapply(kr_test_df$p.value, function(x){
@@ -245,13 +221,14 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   fk_test_df = fk_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                      p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                      p.value < 0.001 ~ "***",
-                                                     .default = NA))
+                                                     .default = NA)) %>% mutate(p.value.raw = p.value)
   fk_test_df$p.value = sapply(fk_test_df$p.value, function(x){
     ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
   unique_fk = unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"][which(as.numeric(unique(fk_test_df$p.value)[unique(fk_test_df$p.value) != "<0.001"]) < 0.05)]
   
   ## MDMR
+  if(mdmr){
   D = dist(scale(as.matrix(residual_add_df[features])))
   mdmr.res = mdmr(X = as.matrix(residual_add_df[batch]), D = D)
   mdmr.summary = summary(mdmr.res)
@@ -265,6 +242,10 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   }, USE.NAMES = FALSE)
   mdmr.summary = mdmr.summary %>% mutate(Statistic = round(Statistic, 2),Pseudo.R2 = round(Pseudo.R2, 2))
   unique_mdmr = unique(mdmr.summary$p.value)[unique(mdmr.summary$p.value) != "<0.001"][which(as.numeric(unique(mdmr.summary$p.value)[unique(mdmr.summary$p.value) != "<0.001"]) < 0.05)]
+  }else{
+    mdmr.summary = NULL
+    unique_mdmr = NULL
+  }
   
   
   ## ANOVA 
@@ -287,7 +268,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   anova_test_df = anova_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                            p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                            p.value < 0.001 ~ "***",
-                                                           .default = NA))
+                                                           .default = NA)) %>% mutate(p.value.raw = p.value)
   anova_test_df$p.value = sapply(anova_test_df$p.value, function(x){
     ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
@@ -304,7 +285,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   kw_test_df = kw_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                                           p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                                           p.value < 0.001 ~ "***",
-                                                                          .default = NA))
+                                                                          .default = NA)) %>% mutate(p.value.raw = p.value)
   kw_test_df$p.value = sapply(kw_test_df$p.value, function(x){
     ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
@@ -323,7 +304,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
   lv_test_df = lv_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                      p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                      p.value < 0.001 ~ "***",
-                                                     .default = NA))
+                                                     .default = NA)) %>% mutate(p.value.raw = p.value)
   lv_test_df$p.value = sapply(lv_test_df$p.value, function(x){
     ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
   }, USE.NAMES = FALSE)
@@ -348,7 +329,7 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     bl_test_df = bl_test_df %>% arrange(p.value) %>% mutate(sig = case_when(p.value < 0.05 & p.value >= 0.01 ~ "*",
                                                                           p.value < 0.01 & p.value >= 0.001 ~ "**",
                                                                           p.value < 0.001 ~ "***",
-                                                                          .default = NA))
+                                                                          .default = NA)) %>% mutate(p.value.raw = p.value)
     bl_test_df$p.value = sapply(bl_test_df$p.value, function(x){
     ifelse(x >= 0.001, sprintf("%.3f", round(x, 3)), "<0.001")
     }, USE.NAMES = FALSE)
@@ -356,201 +337,9 @@ visual_prep <- function(type, features, batch, covariates, interaction = NULL, r
     }else{unique_bl = unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"][which(as.numeric(unique(bl_test_df$p.value)[unique(bl_test_df$p.value) != "<0.001"]) < 0.05)]}
   
   red = c(unique_kr, unique_fk, unique_mdmr, unique_anova, unique_kw, unique_lv, unique_bl, "<0.001")
-  
-  
-  # Empirical Estimates
-  if (is.null(covariates)){
-    if(type == "lmer"){
-      form_c = NULL
-      combat_c = df[random]
-    }else{
-      form_c = NULL
-      combat_c = NULL
-    }
-  }else{
-    if(type == "lmer"){
-      form_c = df[covariates]
-      combat_c = cbind(df[cov_shiny], df[random])
-    }else{
-      form_c = df[covariates]
-      combat_c = df[cov_shiny]
-    }
-  }
-  
-  if (is.null(reference)){
-    if (!predict){
-      form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth, int_type = smooth_int_type)
-      if(family == "comfam"){
-        ComBat_run = ComBatFamily::comfam(data = df[features],
-                                      bat = df[[batch]], 
-                                      covar = combat_c,
-                                      model = eval(parse(text = type)), 
-                                      formula = as.formula(form), 
-                                      ref.batch = ref.batch,
-                                      ...)
-        gamma_hat = ComBat_run$estimates$gamma.hat
-        delta_hat = ComBat_run$estimates$delta.hat
-        #gamma_star = ComBat_run$estimates$gamma.star
-        #delta_star = ComBat_run$estimates$delta.star
-        gamma_prior = ComBat_run$estimates$gamma.prior
-        delta_prior = ComBat_run$estimates$delta.prior
-        batch_name = rownames(gamma_hat)
-        eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
-        eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
-        eb_df = lapply(1:4, function(i){
-          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-          return(eb_df_long)
-        }) %>% bind_rows()
-      }else{
-        ComBat_run = ComBatFamily::covfam(data = df[features],
-                                        bat = df[[batch]] , 
-                                        covar = combat_c,
-                                        model = eval(parse(text = type)), 
-                                        formula = as.formula(form),
-                                        ref.batch = ref.batch,
-                                        ...)
-        gamma_hat = ComBat_run$combat.out$estimates$gamma.hat
-        delta_hat = ComBat_run$combat.out$estimates$delta.hat
-        #gamma_star = ComBat_run$combat.out$estimates$gamma.star
-        #delta_star = ComBat_run$combat.out$estimates$delta.star
-        gamma_prior = ComBat_run$combat.out$estimates$gamma.prior
-        delta_prior = ComBat_run$combat.out$estimates$delta.prior
-        score_gamma_hat = ComBat_run$scores.combat$estimates$gamma.hat
-        score_delta_hat = ComBat_run$scores.combat$estimates$delta.hat
-        score_gamma_prior = ComBat_run$scores.combat$estimates$gamma.prior
-        score_delta_prior = ComBat_run$scores.combat$estimates$delta.prior
-        batch_name = rownames(gamma_hat)
-        eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
-        eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
-        eb_df = lapply(1:8, function(i){
-          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-          return(eb_df_long)
-        }) %>% bind_rows()
-      }
-    }else{
-      ComBat_run = predict(object = object, newdata = df[features], newbat = df[[batch]], newcovar = combat_c, ...)
-      gamma_hat = ComBat_run$estimates$gamma.hat
-      delta_hat = ComBat_run$estimates$delta.hat
-      gamma_prior = ComBat_run$estimates$gamma.prior
-      delta_prior = ComBat_run$estimates$delta.prior
-      batch_name = rownames(gamma_hat)
-      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
-      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
-      eb_df = lapply(1:4, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-        return(eb_df_long)
-      }) %>% bind_rows()
-      #print("need to add features")
-    }
-  }else{
-    reference[[batch]] = as.factor(reference[[batch]])
-    reference[char_var] =  lapply(reference[char_var], as.factor)
-    reference[enco_var] =  lapply(reference[enco_var], as.factor)
-    if(!is.null(random)){
-      for (r in random){
-        reference[[r]] = as.factor(reference[[r]])
-      }
-    }
-    untauched = df %>% semi_join(reference)
-    new_data = df %>% anti_join(reference)
-    reference[[batch]] = "reference"
-    df_c = rbind(reference, new_data)
-    df_c[[batch]] = as.factor(df_c[[batch]])
-    if (is.null(covariates)){
-      form_c = NULL
-      combat_c = NULL
-    }else{
-      if(type == "lmer"){
-        form_c = df_c[covariates]
-        combat_c = cbind(df_c[cov_shiny], df_c[random])
-      }else{
-        form_c = df_c[covariates]
-        combat_c = df_c[cov_shiny]
-      }
-    }
-    form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth, int_type = smooth_int_type)
-    if(family == "comfam"){
-      ComBat_run = ComBatFamily::comfam(data = df_c[features],
-                                        bat = df_c[[batch]], 
-                                        covar = combat_c,
-                                        model = eval(parse(text = type)), 
-                                        formula = as.formula(form), 
-                                        ref.batch = "reference",
-                                        ...)
-      gamma_hat = ComBat_run$estimates$gamma.hat
-      delta_hat = ComBat_run$estimates$delta.hat
-      #gamma_star = ComBat_run$estimates$gamma.star
-      #delta_star = ComBat_run$estimates$delta.star
-      gamma_prior = ComBat_run$estimates$gamma.prior
-      delta_prior = ComBat_run$estimates$delta.prior
-      batch_name = rownames(gamma_hat)
-      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
-      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
-      eb_df = lapply(1:4, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-        return(eb_df_long)
-      }) %>% bind_rows()
-    }else{
-      ComBat_run = ComBatFamily::covfam(data = df_c[features],
-                                        bat = df_c[[batch]] , 
-                                        covar = combat_c,
-                                        model = eval(parse(text = type)), 
-                                        formula = as.formula(form),
-                                        ref.batch = "reference",
-                                        ...)
-      gamma_hat = ComBat_run$combat.out$estimates$gamma.hat
-      delta_hat = ComBat_run$combat.out$estimates$delta.hat
-      #gamma_star = ComBat_run$combat.out$estimates$gamma.star
-      #delta_star = ComBat_run$combat.out$estimates$delta.star
-      gamma_prior = ComBat_run$combat.out$estimates$gamma.prior
-      delta_prior = ComBat_run$combat.out$estimates$delta.prior
-      score_gamma_hat = ComBat_run$scores.combat$estimates$gamma.hat
-      score_delta_hat = ComBat_run$scores.combat$estimates$delta.hat
-      score_gamma_prior = ComBat_run$scores.combat$estimates$gamma.prior
-      score_delta_prior = ComBat_run$scores.combat$estimates$delta.prior
-      batch_name = rownames(gamma_hat)
-      eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
-      eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
-      eb_df = lapply(1:8, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
-        return(eb_df_long)
-      }) %>% bind_rows()
-    }
-  }
-  
-  # Result
-  used_col = c(features, cov_shiny, batch)
-  other_col = setdiff(colnames(df), used_col)
-  other_info = df[other_col]
-  
-  if (is.null(reference)){
-    if(family == "covfam"){
-      com_family = "covfam"
-      comf_df = ComBat_run$dat.covbat
-      comf_df = cbind(other_info, df[batch], df[cov_shiny], comf_df)
-    }else{
-      com_family = "comfam"
-      comf_df = ComBat_run$dat.combat
-      comf_df = cbind(other_info, df[batch], df[cov_shiny], comf_df)
-    }
-  }else{
-    if(family == "covfam"){
-      com_family = "covfam"
-      comf_df = ComBat_run$dat.covbat[(nrow(reference)+1):nrow(df_c),]
-      comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
-      comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untauched, comf_df)
-    }else{
-      com_family = "comfam"
-      comf_df = ComBat_run$dat.combat[(nrow(reference)+1):nrow(df_c),]
-      comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
-      comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untauched, comf_df)
-    }
-  }
-  comf_df = comf_df[colnames(df)]
-  result = list("summary_df" = summary_df, "residual_add_df" = residual_add_df, "residual_ml_df" = residual_ml_df, "pr.feature" = pr.feature, "pca_df" = pca_df, "tsne_df" = tsne_df, "kr_test_df" = kr_test_df, "fk_test_df" = fk_test_df, "mdmr.summary" = mdmr.summary, 
-                "anova_test_df" = anova_test_df, "kw_test_df" = kw_test_df, "lv_test_df" = lv_test_df, "bl_test_df" = bl_test_df, "red" = red, "info" = info, "eb_df" = eb_df, "com_family" = com_family, "harmonized_df" = comf_df, "combat.object" = ComBat_run)
+
+  result = list("summary_df" = summary_df, "residual_add_df" = residual_add_df, "residual_ml_df" = residual_ml_df, "pr.feature" = pr.feature, "pca_summary" = pca_summary, "pca_df" = pca_df, "tsne_df" = tsne_df, "kr_test_df" = kr_test_df, "fk_test_df" = fk_test_df, "mdmr.summary" = mdmr.summary, 
+                "anova_test_df" = anova_test_df, "kw_test_df" = kw_test_df, "lv_test_df" = lv_test_df, "bl_test_df" = bl_test_df, "red" = red, "info" = info)
   return(result)
 }
 
@@ -641,12 +430,11 @@ model_gen <- function(y, type, batch, covariates, interaction = NULL, random = N
 #' @param i Expression of interaction terms supplied to `model`, using comma to separate terms. (eg: "age,diagnosis").
 #' @param random Variable name of a random effect in linear mixed effect model.
 #' @param smooth Variable name that requires a smooth function.
-#' @param int_type Indicates the type of interaction in `gam` models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.
 #'
 #' @return A string of formula 
 #' 
 #' @export
-form_gen = function(x, c, i, random, smooth, int_type){
+form_gen = function(x, c, i, random, smooth){
   if (x == "lm"){
     if(!is.null(c)){
       if (is.null(i)){form = paste0("y ~", paste(colnames(c), collapse = "+"))}else{
@@ -673,4 +461,81 @@ form_gen = function(x, c, i, random, smooth, int_type){
 }
 
 
+#' Interaction term generation
+#'
+#' Generate appropriate interaction terms for regression models.
+#'
+#' @param type The type of model to be used for batch effect evaluation or harmonization (eg: "lmer", "lm").
+#' @param covariates Name of covariates supplied to `model`.
+#' @param smooth Variable names that require a smooth function.
+#' @param interaction Expression of interaction terms supplied to `model` (eg: "age,diagnosis").
+#' @param smooth_int_type A vector that indicates the types of interaction in `gam` models. By default, smooth_int_type is set to be NULL, "linear" represents linear interaction terms. 
+#' "categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth), 
+#' "tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.
+#'
+#' @return `interaction_gen` returns a list containing the following components:
+#' \item{interaction}{A vector of interaction terms to be included}
+#' \item{covariates}{Modefied covariates after expressing interaction terms}
+#' \item{smooth}{Modefied smooth terms after expressing interaction terms}
+#' 
+#' @export
+interaction_gen = function(type = "lm", covariates, smooth = NULL, interaction = NULL, smooth_int_type = NULL){
+  if(!is.null(interaction)){
+    if(type == "gam"){
+      covariates = setdiff(covariates, smooth)
+      inter_gen = function(interaction, smooth, covariates, x){
+        if(x == "linear"){
+          interaction = gsub(",", ":", interaction)
+          smooth_rm = NULL
+          covariate_rm = NULL
+        }else if(x == "categorical-continuous"){
+          element = str_split(interaction,",")[[1]]
+          smooth_element = element[which(element %in% smooth)]
+          categorical_element = setdiff(element, smooth_element)
+          interaction = paste0("s(", smooth_element, ", by = ", categorical_element, ")")
+          smooth_rm = smooth_element
+          covariate_rm = NULL
+        }else if(x == "factor-smooth"){
+          element = str_split(interaction,",")[[1]]
+          interaction = paste("s(", interaction, ", bs = 'fs')")
+          smooth_element = element[which(element %in% smooth)]
+          categorical_element = setdiff(element, smooth_element)
+          smooth_rm = smooth_element
+          covariate_rm = categorical_element
+        }else if(x == "tensor"){
+          interaction = paste("ti(", interaction, ")")
+          smooth_rm = NULL
+          covariate_rm = NULL
+        }else if(x == "smooth-smooth"){
+          element = str_split(interaction,",")
+          interaction = paste("s(", interaction, ")")
+          smooth_rm = element[[1]]
+          covariate_rm = NULL
+        }
+        element_result = list(interaction = interaction, smooth_rm = smooth_rm, covariate_rm = covariate_rm)
+        return(element_result)
+      }
+      interaction_after = lapply(1:length(interaction), function(i) inter_gen(interaction[i], smooth, covariates, x = smooth_int_type[i])$interaction) |> unlist()
+      smooth_rm= lapply(1:length(interaction), function(i) inter_gen(interaction[i], smooth, covariates, x = smooth_int_type[i])$smooth_rm) |> unlist()
+      covariate_rm = lapply(1:length(interaction), function(i) inter_gen(interaction[i], smooth, covariates, x = smooth_int_type[i])$covariate_rm) |> unlist()
+      smooth_after = smooth[which(!smooth %in% smooth_rm)]
+      if(length(smooth_after)==0){smooth = NULL}else{smooth = smooth_after}
+      if(length(covariates[which(!covariates %in% covariate_rm)]) == 0){covariates = NULL}else{covariates = covariates[which(!covariates %in% covariate_rm)]}
+    }else{
+      interaction_after = gsub(",", ":", interaction)
+      smooth = smooth
+      covariates = covariates
+    }
+  }else{
+    interaction_after = NULL
+    smooth = smooth
+    covariates = setdiff(covariates, smooth)
+    }
+  int_result = list("interaction" = interaction_after, "covariates" = covariates, "smooth" = smooth)
+  return(int_result)
+}
+
+
 utils::globalVariables(c("feature", "stat", "ndf", "ddf", "F.scaling", "p.value", "Statistic", "Pseudo.R2","cor_1", "cor_2", "Numer.DF"))
+
+

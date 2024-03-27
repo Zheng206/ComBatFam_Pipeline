@@ -14,7 +14,6 @@ p <- add_argument(p, "data", help = "path to the CSV or EXCEL file that contains
 p <- add_argument(p, "--visualization", short = '-v', help = "a boolean variable indicating whether to run harmonization or batch effect visualization. TRUE indicates batch effect visualization.", default = TRUE)
 p <- add_argument(p, "--after", short = '-a', help = "a boolean variable indicating whether the dataset is before or after harmonization. TRUE indicates the dataset is after harmonization.", default = FALSE)
 p <- add_argument(p, "--family", help = "combat family to use, comfam or covfam", default = "comfam")
-#p <- add_argument(p, "--cov", help = "whether covbat is considered for harmonization, TRUE or FALSE", default = FALSE)
 p <- add_argument(p, "--features", short = '-f', help = "position of data to be harmonized(column numbers), eg: 1-5,9")
 p <- add_argument(p, "--covariates", short = '-c', help = "position of covariates (column numbers)", default = "NULL")
 p <- add_argument(p, "--batch", short = '-b', help = "position of batch column (column number)")
@@ -38,6 +37,7 @@ p <- add_argument(p, "--reference", help = "path to the CSV or EXCEL file that c
 p <- add_argument(p, "--outdir", short = '-o', help = "full path (including the file name) where harmonized data should be written")
 p <- add_argument(p, "--mout", help = "full path where ComBat model to be saved")
 p <- add_argument(p, "--cores", help = "number of cores used for paralleling computing, please provide a numeric value", default = "all")
+p <- add_argument(p, "--mdmr", help = "a boolean variable indicating whether to run the MDMR test.", default = TRUE)
 argv <- parse_args(p)
 
 # Useful Function
@@ -117,8 +117,6 @@ if(argv$model == "gam"){
     smooth_col = gsub("-",":",argv$smooth)
     smooth_col = eval(parse(text = paste0("c(", smooth_col, ")")))
     smooth_var = colnames(df)[smooth_col]
-    #cov_var = colnames(df)[cov_col]
-    #cov_var = setdiff(cov_var, smooth_var)
     smooth = smooth_var
   }
 }else{
@@ -151,7 +149,12 @@ if(!argv$object == "NULL"){
 obs_n = nrow(df)
 df = df[complete.cases(df[c(col_vec, bat_col, cov_col, random_col)]),]
 obs_new = nrow(df)
-print(paste0(obs_n - obs_new, " observations are dropped due to missing values."))
+obs_drop = obs_n - obs_new
+if(obs_drop > 0){
+  print(paste0(obs_drop, " observations are dropped due to missing values."))
+}else{
+  print("The dataset is free of missing values.")
+  }
 
 if(argv$reference != "NULL"){
   untouched = df %>% semi_join(reference_df)
@@ -166,7 +169,7 @@ n_new = length(colnames(features))
 dropped_col = NULL
 if (n_orig > n_new){
   dropped_col = setdiff(colnames(features_orig), colnames(features))
-  print(paste0(n_orig - n_new, " univariate features dropped: ", dropped_col))
+  print(paste0(n_orig - n_new, " univariate feature column(s) dropped: ", dropped_col))
 }
 features_col = colnames(features)
 

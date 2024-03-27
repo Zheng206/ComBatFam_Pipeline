@@ -11,17 +11,18 @@ The ComBatFamQC package offers the following four key functionalities:
 
 1. <u>**Harmonization and Visualization**</u>
 
--   **Statistical Analysis and Harmonization**: ComBatFamQC simplifies the process of performing statistical analyses to detect potential batch effects. It provides you with all relevant statistical test results for batch effect visualization and evaluation. This step also includes the harmonization process and a dataset after harmonization will be returned. 
+-   **Statistical Analysis and Harmonization**: ComBatFamQC simplifies the process of performing statistical analyses to detect potential batch effects. It provides you with all relevant statistical test results for batch effect visualization and evaluation. ComBatFamQC also integrates harmonization methods from the ComBatFamily package, offering users various built-in techniques for better and easier harmonization.
 
--   **Interactive Visualization through R shiny**: The ComBatFamQC package comes with an interactive visualization tool built on R shiny, providing an intuitive user interface to explore and evaluate batch effects. The output is organized into multiple tabs, which includes:
+-   **Interactive Visualization through R shiny**: The ComBatFamQC package comes with an interactive visualization tool built on R shiny, providing an intuitive user interface to explore and evaluate batch effects, as well as conduct interactive harmonization if needed. The output is organized into multiple tabs, which includes:
 
+    -   **Data Overview**: Complete data overview and exploratory analysis
     -   **Summary**: Sample Size and Covariate Distribution
     -   **Residual Plot**: Additive and Multiplicative Batch Effect
-    -   **Residual Dimensionality Reduction**: PCA & T-SNE
-    -   **Empirical Bayes Assumption Check**: Location and Scale Paramaters Distribution (check whether EB priors' distribution overlaps well with empirical distributions)
-    -   **Statistical Test**:
-        -   *Batch Effect Test*: MDMR, Kenward-Roger (liner mix model), ANOVA, Kruskal-Wallis
-        -   *Equality of Variance Test*: Fligner-Killeen, Levene's Test, Bartlett's Test
+    -   **Diagnosis of Global Batch Effect**: PCA, T-SNE and MDMR
+    -   **Diagnosis of Individual Batch Effect**:
+        -   *Statistical Tests for Additive Batch Effect*: Kenward-Roger (liner mix model), ANOVA, Kruskal-Wallis
+        -   *Statistical Tests for Multiplicative Batch Effect*: Fligner-Killeen, Levene's Test, Bartlett's Test
+    -   **Harmonization** Interactive Harmonization if needed
 2. <u>**Post-Harmonization Downstream Analysis**</u>
 
 -   **Age Trajectory** \
