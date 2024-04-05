@@ -27,7 +27,7 @@ require(shinydashboard)
 #' @importFrom DT datatable formatStyle styleEqual DTOutput renderDT
 #' @importFrom stats reorder
 #' @importFrom utils write.csv
-#' 
+#'
 #' @export
 
 comfam_shiny = function(result, after = FALSE, ...){
@@ -39,7 +39,7 @@ comfam_shiny = function(result, after = FALSE, ...){
   covariates = info$cov_shiny
   char_var = info$char_var
   num_var = setdiff(covariates, char_var)
-  
+
   ## UI Design
   ui = function(request) {
     fluidPage(
@@ -49,7 +49,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         sidebarPanel(
           conditionalPanel(condition="input.tabselected==2",
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                title = "Data Summary",
                                radioButtons("type", "Select output type", choices = c("Plot", "Table"), selected = "Plot"),
@@ -67,28 +67,28 @@ comfam_shiny = function(result, after = FALSE, ...){
           ),
           conditionalPanel(condition="input.tabselected==4",
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = 12,
                                title = "Selection of Principal Components ",
                                selectInput("PC1", "Select the first PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[1]),
                                selectInput("PC2", "Select the second PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[2]))),
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = 12,
                                title = "Variance Explained",
                                style = "background-color: white;",
                                DT::DTOutput("pc_variance"))),
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = 12,
                                title = "MDMR",
                                style = "background-color: white;",
                                uiOutput("mdmr_control")))
-                           
+
           ),
           conditionalPanel(condition="input.tabselected==6",
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                title = "Harmonization Setup",
                                radioButtons("com_type", "Select ComBatFam type", choices = c("comfam", "covfam"), selected = "comfam"),
@@ -107,7 +107,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                              )
                            ),
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                title = "Harmonization",
                                textInput("save_path", "Save harmonized dataframe to:"),
@@ -120,11 +120,11 @@ comfam_shiny = function(result, after = FALSE, ...){
                            ),
                            selectInput("batch_selection", "Select the batches to be shown on the graph", choices = c("All", levels(info$df[[batch]])), selected = "All"),
                            uiOutput("cov_eb")
-                           
+
           ),
           conditionalPanel(condition="input.tabselected==5",
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                title = "Additive Batch Effect",
                                if(type == "lmer"){
@@ -134,13 +134,13 @@ comfam_shiny = function(result, after = FALSE, ...){
                                },
                                uiOutput("test_batch_explain"))),
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                title = "Multiplicative Batch Effect",
                                radioButtons("test_variance", "Type of Statistical Tests for Multiplicative Batch Effect", choices = c("Fligner-Killeen", "Levene's Test", "Bartlett's Test"), selected = "Fligner-Killeen"),
                                uiOutput("test_variance_explain"))),
                            fluidRow(
-                             shinydashboard::box(  
+                             shinydashboard::box(
                                width = NULL,
                                uiOutput("mul_adjustment")))
           ),
@@ -166,7 +166,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                        shinydashboard::box(
                          width = 12,
                          uiOutput("data_ui")))),
-            tabPanel("Summary", value = 2, 
+            tabPanel("Summary", value = 2,
                      fluidRow(
                        shinydashboard::box(
                          width = 12,
@@ -177,7 +177,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                          width = 12,
                          title = "Covariate Distribution",
                          shiny::uiOutput("cov_output")))),
-            tabPanel("Residual Plot", value = 3, 
+            tabPanel("Residual Plot", value = 3,
                      fluidRow(
                        shinydashboard::box(
                          width = 12,
@@ -190,7 +190,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                          title = "Multiplicative Batch Effect",
                          shiny::uiOutput("res_ml_explain"),
                          shiny::plotOutput("res_ml")))),
-            tabPanel("Diagnosis of Global Batch Effect", value = 4, 
+            tabPanel("Diagnosis of Global Batch Effect", value = 4,
                      fluidRow(
                        shinydashboard::box(
                          width = 12,
@@ -215,7 +215,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                          shiny::uiOutput("test_variance_ui"),
                          shiny::uiOutput("sig_pct_variance")))),
             if(!after){
-              tabPanel("Harmonization", value = 6, 
+              tabPanel("Harmonization", value = 6,
                        fluidRow(
                          shinydashboard::box(
                            width = 12,
@@ -232,7 +232,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                            shiny::plotOutput("eb_scale"))))
             },
             id = "tabselected"
-          )   
+          )
         )
       )
     )
@@ -240,8 +240,8 @@ comfam_shiny = function(result, after = FALSE, ...){
   ## Server Design
   server = function(input, output, session) {
     combat_result_s = reactiveVal(NULL)
-    
-    ############### Data Overview #############################   
+
+    ############### Data Overview #############################
     output$explore_bar = shiny::renderUI({
       if(input$data_view == "Exploratory Analysis"){
         fluidRow(
@@ -255,7 +255,7 @@ comfam_shiny = function(result, after = FALSE, ...){
             shiny::uiOutput("cov_visual_control")))
       }
     })
-    
+
     output$cov_visual_control = shiny::renderUI({
       if (!is.null(covariates)){
         if(input$single_cov %in% num_var){
@@ -274,29 +274,29 @@ comfam_shiny = function(result, after = FALSE, ...){
         }
       }
     })
-    
+
     output$batch_sep_control = shiny::renderUI({
       if(input$num_var_control_batch == "Yes"){
         checkboxGroupInput("overview_batch_select", "Select batch levels to include:", choices = levels(df[[batch]]), selected = levels(df[[batch]]))
       }
     })
-    
+
     output$data_ui = shiny::renderUI({
       if(input$data_view == "Exploratory Analysis"){
         fluidRow(
-          column(width = 6, 
+          column(width = 6,
                  shinydashboard::box(
                    width = NULL,
                    title = "Batch vs Feature",
                    shiny::plotOutput("batch_vi"))),
-          column(width = 6, 
+          column(width = 6,
                  shinydashboard::box(
                    width = NULL,
                    title = "Covariate vs Feature",
                    shiny::plotOutput("cov_vi"))))
       }else{shiny::htmlOutput("data_rm_explain")}
     })
-    
+
     output$data_rm_explain = shiny::renderUI({
       data_rm = result$summary_df %>% filter(remove == "removed")
       if(nrow(data_rm) == 0){
@@ -305,7 +305,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         HTML(paste0("Batch levels that contain less than 3 observations are dropped: <strong>", nrow(data_rm), " levels are dropped, corresponding to ", sum(data_rm$count), " observations</strong>."))
       }
     })
-    
+
     output$batch_vi = shiny::renderPlot({
       if(input$num_var_control_batch == "No"){
         ggplot(df, aes(x = eval(parse(text = input$single_feature)))) +
@@ -330,7 +330,7 @@ comfam_shiny = function(result, after = FALSE, ...){
           )
       }
     })
-    
+
     output$cov_vi = shiny::renderPlot({
       if (!is.null(covariates)){
         if(input$single_cov %in% num_var){
@@ -371,7 +371,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                   axis.text.x = element_text(size = 12, face = "bold"),
                   axis.text.y = element_text(size = 12, face = "bold"),
                 )
-              
+
             }else{
               overview_sub_df = df %>% filter(eval(parse(text = batch)) %in% input$overview_batch_select)
               ggplot(overview_sub_df, aes(x = eval(parse(text = input$single_cov)), y = eval(parse(text = input$single_feature)), fill = eval(parse(text = batch)))) +
@@ -422,12 +422,12 @@ comfam_shiny = function(result, after = FALSE, ...){
                 axis.text.x = element_text(size = 12, face = "bold"),
                 axis.text.y = element_text(size = 12, face = "bold"),
               )
-          } 
+          }
         }
       }
     })
-    
-    
+
+
     output$data_usage_explain = shiny::renderUI({
       HTML(paste0("Below is a preview of the data used for batch effect evaluation (and harmonization). Please review the dataset carefully to ensure correct identification of features, covariates and batch variable. <br> ",
                   "<strong>Note</strong>: The corresponding color themes for each type of variable are as follows: <br> ",
@@ -435,12 +435,12 @@ comfam_shiny = function(result, after = FALSE, ...){
                   "<strong>Features</strong> - <strong><span style='color: lightyellow;'>lightyellow</span></strong>; ",
                   "<strong>Batch</strong> - <strong><span style='color: lightblue;'>lightblue</span></strong>."))
     })
-    
+
     output$data_frame = DT::renderDT({
       other = setdiff(colnames(df), c(batch, covariates, features))
       df_show = df[c(batch, covariates, features, other)]
       if(input$data_view == "Exploratory Analysis"){
-        df_show %>% dplyr::select(batch, covariates, input$single_feature) %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+        df_show %>% dplyr::select(batch, covariates, input$single_feature) %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                                    targets = "_all")))) %>% formatStyle(
                                                                                                                                      covariates,
                                                                                                                                      backgroundColor = "pink"
@@ -452,7 +452,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                                                                                                                                      backgroundColor = "lightblue"
                                                                                                                                    )
       }else{
-        df_show %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+        df_show %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                         targets = "_all")))) %>% formatStyle(
                                                                           covariates,
                                                                           backgroundColor = "pink"
@@ -465,14 +465,14 @@ comfam_shiny = function(result, after = FALSE, ...){
                                                                         )
       }
     })
-    
-    ############### Summary ############################# 
+
+    ############### Summary #############################
     output$cov_status = shiny::renderUI({
       if (!is.null(covariates)){
         selectInput("cov", "Select covariate", choices = covariates, selected = covariates[1])
       }
     })
-    
+
     output$output = shiny::renderUI({
       if (input$type == "Plot") {
         plotOutput("plot")
@@ -490,11 +490,11 @@ comfam_shiny = function(result, after = FALSE, ...){
           axis.title.y = element_text(size = 12, face = "bold"),
           axis.text.x = element_text(size = 12, face = "bold"),
           axis.text.y = element_text(size = 12, face = "bold"),
-          axis.ticks.y = element_blank()) 
+          axis.ticks.y = element_blank())
     })
     output$table = DT::renderDT({
-      result$summary_df %>% mutate(`percentage (%)` = sprintf("%.3f", `percentage (%)`)) %>% arrange(desc(remove)) %>% 
-        DT::datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+      result$summary_df %>% mutate(`percentage (%)` = sprintf("%.3f", `percentage (%)`)) %>% arrange(desc(remove)) %>%
+        DT::datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                             targets = "_all")))) %>% formatStyle(
                                                               'remove',
                                                               target = 'row',
@@ -510,11 +510,11 @@ comfam_shiny = function(result, after = FALSE, ...){
         DT::DTOutput("cov_table")
       }
     })
-    
+
     output$cov_text = shiny::renderText({
       print("No covariate is preserved")
     })
-    
+
     output$cov_plot = shiny::renderPlot({
       if (!is.null(covariates)){
         if(input$cov %in% num_var){
@@ -522,14 +522,14 @@ comfam_shiny = function(result, after = FALSE, ...){
             geom_boxplot(alpha = 0.3) +
             #geom_point() +
             labs(x = input$cov, y = "Batch", fill = "Covariate") +
-            theme(#plot.title = element_text(hjust = 0.5), 
+            theme(#plot.title = element_text(hjust = 0.5),
               legend.position = "none",
               axis.title.x = element_text(size = 12, face = "bold"),
               axis.title.y = element_text(size = 12, face = "bold"),
               axis.text.x = element_text(size = 12, face = "bold"),
               axis.text.y = element_text(size = 12, face = "bold"),
-              #axis.text.y = element_blank(), 
-              axis.ticks.y = element_blank()) 
+              #axis.text.y = element_blank(),
+              axis.ticks.y = element_blank())
         }else if(input$cov %in% char_var){
           df_c = df %>% group_by(eval(parse(text = batch)), eval(parse(text = input$cov))) %>% dplyr::tally() %>% mutate(percentage = n/sum(n))
           colnames(df_c) = c(batch, input$cov, "n", "percentage")
@@ -543,8 +543,8 @@ comfam_shiny = function(result, after = FALSE, ...){
               axis.title.y = element_text(size = 12, face = "bold"),
               axis.text.x = element_text(size = 12, face = "bold"),
               axis.text.y = element_text(size = 12, face = "bold"),
-              #axis.text.y = element_blank(), 
-              axis.ticks.y = element_blank()) 
+              #axis.text.y = element_blank(),
+              axis.ticks.y = element_blank())
         }
       }
     })
@@ -562,8 +562,8 @@ comfam_shiny = function(result, after = FALSE, ...){
         }
       }
     })
-    
-    ############### Residual Plot ############################# 
+
+    ############### Residual Plot #############################
     output$resid_all_control = shiny::renderUI({
       if(input$resid_all == "No"){
         checkboxGroupInput("resid_batch_select", "Select batch levels to include:", choices = levels(df[[batch]]), selected = levels(df[[batch]]))
@@ -572,19 +572,19 @@ comfam_shiny = function(result, after = FALSE, ...){
     output$resid_label_control = shiny::renderUI({
       if(input$resid_label == "Yes"){
         sliderInput("label_angle", "Customize the angle of the label", min = 0, max = 90, value = 0)
-      } 
+      }
     })
-    
+
     output$res_add_explain = shiny::renderUI({
       HTML(print("A <strong>noticeable deviation of the mean from zero</strong> in the additive-residual plot indicates the presence of an additive batch effect"))
     })
-    
+
     output$res_add = shiny::renderPlot({
       add_mean = result$residual_add_df %>% group_by(result$residual_add_df[[batch]]) %>% summarize(across(features, median, .names = "mean_{.col}")) %>% ungroup()
       colnames(add_mean) = c(batch, colnames(add_mean)[-1])
       result$residual_add_df = result$residual_add_df %>% left_join(add_mean, by = c(batch))
       if(input$resid_color == "No"){
-        
+
         if(input$resid_all == "Yes"){
           add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_add_df[[paste0("mean_",input$feature)]]), y = result$residual_add_df[[input$feature]])) +
             geom_boxplot() +
@@ -609,10 +609,10 @@ comfam_shiny = function(result, after = FALSE, ...){
               axis.text.y = element_text(size = 12, face = "bold"),
             )
         }
-        
+
         if(input$resid_label == "No"){
           add_plot +
-            theme(axis.text.x = element_blank(), 
+            theme(axis.text.x = element_blank(),
                   axis.ticks.x = element_blank())
         }else{
           add_plot +
@@ -620,11 +620,11 @@ comfam_shiny = function(result, after = FALSE, ...){
                   axis.title.x = element_text(size = 12, face = "bold"),
                   axis.title.y = element_text(size = 12, face = "bold"),
                   axis.text.y = element_text(size = 12, face = "bold")
-            ) 
+            )
         }
-        
+
       }else{
-        
+
         if(input$resid_all == "Yes"){
           add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_add_df[[paste0("mean_",input$feature)]]), y = result$residual_add_df[[input$feature]], fill = eval(parse(text = batch)))) +
             geom_boxplot(alpha = 0.3) +
@@ -643,10 +643,10 @@ comfam_shiny = function(result, after = FALSE, ...){
               axis.text.y = element_text(size = 12, face = "bold"),
             )
         }
-        
+
         if(input$resid_label == "No"){
           add_plot +
-            theme(axis.text.x = element_blank(), 
+            theme(axis.text.x = element_blank(),
                   axis.ticks.x = element_blank(),
                   legend.position = "none")
         }else{
@@ -656,22 +656,22 @@ comfam_shiny = function(result, after = FALSE, ...){
                   axis.title.y = element_text(size = 12, face = "bold"),
                   axis.text.y = element_text(size = 12, face = "bold"),
                   legend.position = "none"
-            ) 
+            )
         }
-        
+
       }
     })
-    
+
     output$res_ml_explain = shiny::renderUI({
       HTML(print("A <strong>substantial variation</strong> in the multiplicative-residual box plots demonstrates a potential multiplicative batch effect."))
     })
-    
+
     output$res_ml = shiny::renderPlot({
       add_mean = result$residual_add_df %>% group_by(result$residual_add_df[[batch]]) %>% summarize(across(features, median, .names = "mean_{.col}")) %>% ungroup()
       colnames(add_mean) = c(batch, colnames(add_mean)[-1])
       result$residual_ml_df = result$residual_ml_df %>% left_join(add_mean, by = c(batch))
       if(input$resid_color == "No"){
-        
+
         if(input$resid_all == "Yes"){
           mul_plot = ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_ml_df[[paste0("mean_",input$feature)]]), y = result$residual_ml_df[[input$feature]])) +
             geom_boxplot() +
@@ -698,7 +698,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         }
         if(input$resid_label == "No"){
           mul_plot +
-            theme(axis.text.x = element_blank(), 
+            theme(axis.text.x = element_blank(),
                   axis.ticks.x = element_blank())
         }else{
           mul_plot +
@@ -706,7 +706,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                   axis.title.x = element_text(size = 12, face = "bold"),
                   axis.title.y = element_text(size = 12, face = "bold"),
                   axis.text.y = element_text(size = 12, face = "bold")
-            ) 
+            )
         }
       }else{
         if(input$resid_all == "Yes"){
@@ -733,10 +733,10 @@ comfam_shiny = function(result, after = FALSE, ...){
               axis.text.y = element_text(size = 12, face = "bold"),
             )
         }
-        
+
         if(input$resid_label == "No"){
           mul_plot +
-            theme(axis.text.x = element_blank(), 
+            theme(axis.text.x = element_blank(),
                   axis.ticks.x = element_blank(),
                   legend.position = "none")
         }else{
@@ -746,19 +746,19 @@ comfam_shiny = function(result, after = FALSE, ...){
                   axis.title.y = element_text(size = 12, face = "bold"),
                   axis.text.y = element_text(size = 12, face = "bold"),
                   legend.position = "none"
-            ) 
+            )
         }
-        
+
       }
     })
-    
-    ############### Dimensionality Reduction #############################     
+
+    ############### Dimensionality Reduction #############################
     output$pc_variance = DT::renderDT({
-      result$pca_summary %>% filter(Principal_Component %in% c(input$PC1, input$PC2)) %>% dplyr::select(Principal_Component, Variance_Explained) %>% 
-        add_row(Principal_Component = "Total", Variance_Explained = sum(.$Variance_Explained)) %>% mutate(Variance_Explained = sprintf("%.3f", Variance_Explained)) %>% 
+      result$pca_summary %>% filter(Principal_Component %in% c(input$PC1, input$PC2)) %>% dplyr::select(Principal_Component, Variance_Explained) %>%
+        add_row(Principal_Component = "Total", Variance_Explained = sum(.$Variance_Explained)) %>% mutate(Variance_Explained = sprintf("%.3f", Variance_Explained)) %>%
         DT::datatable(options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
     })
-    
+
     output$mdmr_control = renderUI({
       if(!is.null(result$mdmr.summary)){
         tagList(list(
@@ -770,11 +770,11 @@ comfam_shiny = function(result, after = FALSE, ...){
         uiOutput("mdmr_skip")
       }
     })
-    
+
     output$mdmr_skip = renderUI({
       HTML("The MDMR test has been skipped.")
     })
-    
+
     output$pca = shiny::renderPlot({
       ggplot(result$pca_df, aes(x = result$pca_df[[input$PC1]], y = result$pca_df[[input$PC2]], color = result$pca_df[[batch]])) +
         geom_point() +
@@ -799,8 +799,8 @@ comfam_shiny = function(result, after = FALSE, ...){
           axis.text.y = element_text(size = 12, face = "bold"),
         )
     })
-    
-    ############### Harmonization if needed #############################  
+
+    ############### Harmonization if needed #############################
     output$com_type_note = renderUI({
       if(input$com_type == "comfam"){
         HTML(print("<strong>Note</strong>: Correcting Batch Effects <strong>(ComBat Family)</strong> <br><br>"))
@@ -808,7 +808,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         HTML(print("<strong>Note</strong>: Correcting Covariance Batch Effects <strong>(CovBat Family)</strong> <br><br>"))
       }
     })
-    
+
     output$com_model_note = renderUI({
       if(input$com_model == "lm"){
         HTML(print("<strong>Note</strong>: a method designed for batch effect correction in cross-sectional data with linear covariate effects. <strong>(Original ComBat)</strong> <br><br>"))
@@ -818,35 +818,35 @@ comfam_shiny = function(result, after = FALSE, ...){
         HTML(print("<strong>Note</strong>: a method allows for preservation of non-linear covariate effects through use of the generalized additive model. <strong>(ComBat-GAM)</strong> <br><br>"))
       }
     })
-    
+
     output$eb_control_select = renderUI({
       if(input$com_type == "covfam"){
         radioButtons("score_eb_control", "Select whether the EB method should be used for the ComBat in PCA Scores", choices = c("Yes", "No"), selected = "No")
       }
     })
-    
+
     output$smooth_select = renderUI({
       if(input$com_model == "gam"){
         checkboxGroupInput("smooth", "Select smooth terms:", choices = result$info$cov_shiny, selected = info$smooth_orig)
       }
     })
-    
+
     output$random_select = renderUI({
       if(input$com_model == "lmer"){
         selectInput("random", "Select the random effect when considering longitudinal combat", choices = colnames(info$df), selected = colnames(info$df)[1])
       }
     })
-    
+
     output$interaction_note = renderUI({
       HTML(print("eg: covariate1*covariate2,covariate3*covariate4 <br><br>"))
     })
-    
+
     output$smooth_int_type_control = renderUI({
       if(input$com_model == "gam"){
         textInput("smooth_int_type", "Enter the types of potential interaction terms:", value = paste0(info$smooth_int_type, collapse = ","))
       }
     })
-    
+
     output$smooth_int_type_control_note = renderUI({
       if(input$com_model == "gam"){
         HTML(paste0("eg: linear,factor-smooth <br><br>",
@@ -858,17 +858,17 @@ comfam_shiny = function(result, after = FALSE, ...){
                     "<strong>smooth-smooth</strong>: represents interaction between smoothed variables (s(covariate1,covariate2)) <br><br>"))
       }
     })
-    
+
     output$cov_eb = renderUI({
       if(input$com_type == "covfam"){
         radioButtons("eb_check_type", "Select which type of EB assumption to be checked", choices = c("First-step ComBat", "ComBat in Scores"), selected = "First-step ComBat")
       }
     })
-    
+
     output$eb_explain = shiny::renderUI({
       HTML(paste0("<br>",
                   "This section aims to check the <strong>prior distribution assumption</strong> of the L/S model batch parameters. <br>",
-                  "<br>",   
+                  "<br>",
                   "If the Empirical Bayes (EB) method is used, we expect to see: <br>",
                   "<ul>
                           <li>An <strong>estimated density distribution of the empirical values</strong> for both the location parameter gamma hat and the scale parameter delta hat (dotted line)</li>
@@ -880,7 +880,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                     </ul>",
                   "If <strong>All</strong> batches are selected, line plots are colored by <strong>batch level</strong>."))
     })
-    
+
     observeEvent(input$ComBat,{
       save_path = input$save_path
       if(length(input$interaction) > 0 & input$interaction != ""){
@@ -898,11 +898,11 @@ comfam_shiny = function(result, after = FALSE, ...){
       if(input$com_model == "lmer"){
         random = input$random
       }else{random = NULL}
-      
+
       if(input$ref_bat_select == "None"){
         ref_bat = NULL
       }else{ref_bat = input$ref_bat_select}
-      
+
       # Set up harmonization progress notification
       msg = sprintf('Start harmonization progress')
       withProgress(message = msg, value = 0, {
@@ -914,18 +914,18 @@ comfam_shiny = function(result, after = FALSE, ...){
         #assign("combat_result", combat_result, envir = .GlobalEnv)
         combat_result_s(combat_result)
         harm_df = combat_result$harmonized_df
-        if(length(save_path) > 0 & input$interaction != ""){
+        if(length(save_path) > 0 & save_path != ""){
           write.csv(harm_df, save_path)
         }
         setProgress(1, 'Complete!')
       })
-      
+
       showNotification('Harmonization Completed', type = "message")
-      
+
       output$output_msg <- renderPrint({
         paste("DataFrame saved to:", input$save_path)
       })
-      
+
       output$eb_location = shiny::renderPlot({
         if(combat_result$com_family == "comfam"){
           if(eb){
@@ -1119,7 +1119,7 @@ comfam_shiny = function(result, after = FALSE, ...){
           }
         }
       })
-      
+
       output$eb_scale = shiny::renderPlot({
         if(combat_result$com_family == "comfam"){
           if(eb){
@@ -1316,7 +1316,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         }
       })
     })
-    
+
     observeEvent(input$ComBat_model,{
       model_save_path = input$model_save_path
       combat_result = combat_result_s()
@@ -1334,19 +1334,19 @@ comfam_shiny = function(result, after = FALSE, ...){
       })
       showNotification('ComBat Model Successfully Saved', type = "message")
     })
-    
+
     output$output_msg_model <- renderPrint({
       paste("ComBat model saved to:", input$model_save_path)
     })
-    
-    ############### Statistical Tests ############################# 
-    
+
+    ############### Statistical Tests #############################
+
     output$mul_adjustment = renderUI({
       HTML(paste0("<br>",
                   "<br>",
                   "All p-values have been adjusted by the <strong><span style='color: purple;'>Bonferroni</span></strong> method."))
     })
-    
+
     output$test_batch_explain = shiny::renderUI({
       if(input$test_batch == "ANOVA"){
         HTML(print("<strong>Note</strong>: The one-way ANOVA test is a statistical technique used to assess whether there are significant differences among the means of three or more groups. It requires meeting several assumptions to obtain reliable results."))
@@ -1356,7 +1356,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         HTML(print("<strong>Note</strong>: The Kenward-Roger(KR) test is commonly employed in the context of linear mixed-effects models to estimate the degrees of freedom for hypothesis testing."))
       }
     })
-    
+
     output$test_variance_explain = shiny::renderUI({
       if(input$test_variance == "Fligner-Killeen"){
         HTML(print("<strong>Note</strong>: The Fligner-Killeen (FK) test is a non-parametric alternative to Levene's and Bartlett's tests for assessing the homogeneity of variances. It doesn't rely on the assumption of normality."))
@@ -1366,57 +1366,57 @@ comfam_shiny = function(result, after = FALSE, ...){
         HTML(print("<strong>Note</strong>: The Bartlett's test is also a parametric test used for the same purpose as the Levene's test. Compared to the Levene's test, it is even more sensitive to departures from normality."))
       }
     })
-    
+
     output$test_batch_ui = shiny::renderUI({
       fluidRow(
-        column(width = 12, 
+        column(width = 12,
                shinydashboard::box(
                  width = NULL,
                  DT::DTOutput("test_batch_table"))))
-      #column(width = 6, 
+      #column(width = 6,
       #       shinydashboard::box(
       #         width = NULL,
       #         title = "P-value Distribution",
       #         shiny::plotOutput("test_batch_plot", height = "600px"))))
     })
-    
+
     output$test_variance_ui = shiny::renderUI({
       fluidRow(
-        column(width = 12, 
+        column(width = 12,
                shinydashboard::box(
                  width = NULL,
                  DT::DTOutput("test_variance"))))
-      #column(width = 6, 
+      #column(width = 6,
       #       shinydashboard::box(
       #         width = NULL,
       #         title = "P-value Distribution",
       #         shiny::plotOutput("test_variance_plot", height = "600px"))))
     })
-    
+
     output$test_batch_mdmr = DT::renderDT({
-      result$mdmr.summary %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+      result$mdmr.summary %>% DT::datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                   targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                     'sig',
                                                                                     target = 'row',
                                                                                     backgroundColor = styleEqual(c("*", "**", "***"), "lightyellow"))
     })
-    
+
     output$mdmr_sig_text = renderUI({
       if(is.na(result$mdmr.summary$sig[2])){
         HTML("There's no significant global batch effect based on the MDMR test.")
       }else{HTML("There's a <strong>significant global batch effect</strong> based on the MDMR test.")}
     })
-    
+
     output$mdmr_note = renderUI({
       HTML(paste0("<strong>Note</strong>: The Multivariate Distance Matrix Regression (MDMR) is utilized to evaluate the overall presence of batch effects within the dataset. <br>",
                   "<br>"))
     })
-    
-    
+
+
     output$test_batch_table = DT::renderDT({
       if(input$test_batch == "Kenward-Roger (liner mixed model)"){
         if(type == "lmer"){
-          result$kr_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+          result$kr_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                          targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                                                            'sig',
                                                                                                                            target = 'row',
@@ -1430,14 +1430,14 @@ comfam_shiny = function(result, after = FALSE, ...){
           target = 'row',
           backgroundColor = styleEqual(c("*", "**", "***"), "lightyellow"))
       }else if(input$test_batch == "Kruskal-Wallis"){
-        result$kw_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+        result$kw_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                        targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                                                          'sig',
                                                                                                                          target = 'row',
                                                                                                                          backgroundColor = styleEqual(c("*", "**", "***"), "lightyellow"))
       }
     })
-    
+
     #output$test_batch_plot = shiny::renderPlot({
     #  if(input$test_batch == "Kenward-Roger (liner mixed model)"){
     #    p_batch_df = result$kr_test_df
@@ -1450,26 +1450,26 @@ comfam_shiny = function(result, after = FALSE, ...){
     #    ggplot(p_batch_df, aes(x = p.value.raw)) +
     #      geom_density(aes(y = ..scaled..), fill = "blue", alpha = 0.3) +
     #      geom_vline(xintercept = 0.05, linetype = "dashed", color = "red") +
-    #      labs( x = "p.value", y = "density") 
+    #      labs( x = "p.value", y = "density")
     #  }
     #})
-    
+
     output$test_variance = DT::renderDT({
       if(input$test_variance == "Fligner-Killeen"){
-        result$fk_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+        result$fk_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                        targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                                                          'sig',
                                                                                                                          target = 'row',
                                                                                                                          backgroundColor = styleEqual(c("*", "**", "***"), "lightyellow"))
       }else if(input$test_variance == "Levene's Test"){
-        result$lv_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+        result$lv_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                        targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                                                          'sig',
                                                                                                                          target = 'row',
                                                                                                                          backgroundColor = styleEqual(c("*", "**", "***"), "lightyellow"))
       }else if(input$test_variance == "Bartlett's Test"){
         if(nrow(result$bl_test_df)!=0){
-          result$bl_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center', 
+          result$bl_test_df %>% dplyr::select(feature, p.value, sig) %>% datatable(options = list(columnDefs = list(list(className = 'dt-center',
                                                                                                                          targets = "_all")))) %>% formatStyle(columns = c("p.value"),color = styleEqual(result$red, "red")) %>% formatStyle(
                                                                                                                            'sig',
                                                                                                                            target = 'row',
@@ -1478,7 +1478,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                                                                                                                            }
       }
     })
-    
+
     #output$test_variance_plot = shiny::renderPlot({
     #  if(input$test_variance == "Fligner-Killeen"){
     #    p_variance_df = result$fk_test_df
@@ -1490,9 +1490,9 @@ comfam_shiny = function(result, after = FALSE, ...){
     #  ggplot(p_variance_df, aes(x = p.value.raw)) +
     #    geom_density(aes(y = ..scaled..), fill = "blue", alpha = 0.3) +
     #    geom_vline(xintercept = 0.05, linetype = "dashed", color = "red") +
-    #    labs( x = "p.value", y = "density") 
+    #    labs( x = "p.value", y = "density")
     #})
-    
+
     output$sig_pct_batch = shiny::renderText({
       if(input$test_batch == "Kenward-Roger (liner mixed model)"){
         if(type == "lmer"){
@@ -1530,7 +1530,7 @@ comfam_shiny = function(result, after = FALSE, ...){
       }
     })
   }
-  
+
   shinyApp(ui = ui, server = server, enableBookmarking = "url")
 }
 
