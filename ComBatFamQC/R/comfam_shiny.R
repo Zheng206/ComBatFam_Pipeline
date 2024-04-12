@@ -71,7 +71,10 @@ comfam_shiny = function(result, after = FALSE, ...){
                                width = 12,
                                title = "Selection of Principal Components ",
                                selectInput("PC1", "Select the first PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[1]),
-                               selectInput("PC2", "Select the second PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[2]))),
+                               selectInput("PC2", "Select the second PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[2]),
+                               radioButtons("pca_label", "Select whether to include labels for the x axis.", choices = c("Yes", "No"), selected = "No"),
+                               radioButtons("pca_all", "Select whether to include all batch levels", choices = c("Yes", "No"), selected = "Yes"),
+                               uiOutput("pca_all_control"))),
                            fluidRow(
                              shinydashboard::box(
                                width = 12,
@@ -586,7 +589,7 @@ comfam_shiny = function(result, after = FALSE, ...){
       if(input$resid_color == "No"){
 
         if(input$resid_all == "Yes"){
-          add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_add_df[[paste0("mean_",input$feature)]]), y = result$residual_add_df[[input$feature]])) +
+          add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]])) +
             geom_boxplot() +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -598,7 +601,7 @@ comfam_shiny = function(result, after = FALSE, ...){
             )
         }else{
           sub_plot_df = result$residual_add_df %>% filter(eval(parse(text = batch)) %in% input$resid_batch_select)
-          add_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), sub_plot_df[[paste0("mean_",input$feature)]]), y = sub_plot_df[[input$feature]])) +
+          add_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]])) +
             geom_boxplot() +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -626,13 +629,13 @@ comfam_shiny = function(result, after = FALSE, ...){
       }else{
 
         if(input$resid_all == "Yes"){
-          add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_add_df[[paste0("mean_",input$feature)]]), y = result$residual_add_df[[input$feature]], fill = eval(parse(text = batch)))) +
+          add_plot = ggplot(result$residual_add_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]], fill = eval(parse(text = batch)))) +
             geom_boxplot(alpha = 0.3) +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual")
         }else{
           sub_plot_df = result$residual_add_df %>% filter(eval(parse(text = batch)) %in% input$resid_batch_select)
-          add_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), sub_plot_df[[paste0("mean_",input$feature)]]), y = sub_plot_df[[input$feature]], fill = eval(parse(text = batch)))) +
+          add_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]], fill = eval(parse(text = batch)))) +
             geom_boxplot(alpha = 0.3) +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -673,7 +676,7 @@ comfam_shiny = function(result, after = FALSE, ...){
       if(input$resid_color == "No"){
 
         if(input$resid_all == "Yes"){
-          mul_plot = ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_ml_df[[paste0("mean_",input$feature)]]), y = result$residual_ml_df[[input$feature]])) +
+          mul_plot = ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]])) +
             geom_boxplot() +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -685,7 +688,7 @@ comfam_shiny = function(result, after = FALSE, ...){
             )
         }else{
           sub_plot_df = result$residual_ml_df %>% filter(eval(parse(text = batch)) %in% input$resid_batch_select)
-          mul_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), sub_plot_df[[paste0("mean_",input$feature)]]), y = sub_plot_df[[input$feature]])) +
+          mul_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]])) +
             geom_boxplot() +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -710,7 +713,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         }
       }else{
         if(input$resid_all == "Yes"){
-          mul_plot = ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), result$residual_ml_df[[paste0("mean_",input$feature)]]), y = result$residual_ml_df[[input$feature]], fill = eval(parse(text = batch)))) +
+          mul_plot = ggplot(result$residual_ml_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]], fill = eval(parse(text = batch)))) +
             geom_boxplot(alpha = 0.3) +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -722,7 +725,7 @@ comfam_shiny = function(result, after = FALSE, ...){
             )
         }else{
           sub_plot_df = result$residual_ml_df %>% filter(eval(parse(text = batch)) %in% input$resid_batch_select)
-          mul_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), sub_plot_df[[paste0("mean_",input$feature)]]), y = sub_plot_df[[input$feature]], fill = eval(parse(text = batch)))) +
+          mul_plot = ggplot(sub_plot_df, aes(x = reorder(as.factor(eval(parse(text = batch))), .data[[paste0("mean_",input$feature)]]), y = .data[[input$feature]], fill = eval(parse(text = batch)))) +
             geom_boxplot(alpha = 0.3) +
             geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
             labs(x = "Batch", y = "Residual") +
@@ -774,30 +777,64 @@ comfam_shiny = function(result, after = FALSE, ...){
     output$mdmr_skip = renderUI({
       HTML("The MDMR test has been skipped.")
     })
+    
+    output$pca_all_control = shiny::renderUI({
+      if(input$pca_all == "No"){
+        checkboxGroupInput("pca_batch_select", "Select batch levels to include:", choices = levels(df[[batch]]), selected = levels(df[[batch]]))
+      }
+    })
 
     output$pca = shiny::renderPlot({
-      ggplot(result$pca_df, aes(x = result$pca_df[[input$PC1]], y = result$pca_df[[input$PC2]], color = result$pca_df[[batch]])) +
-        geom_point() +
-        labs(x = input$PC1, y = input$PC2, color = "Batch") +
-        guides(color = "none") +
-        theme(
-          axis.title.x = element_text(size = 12, face = "bold"),
-          axis.title.y = element_text(size = 12, face = "bold"),
-          axis.text.x = element_text(size = 12, face = "bold"),
-          axis.text.y = element_text(size = 12, face = "bold"),
-        )
+      if(input$pca_all == "Yes"){
+        pca_plot_base = ggplot(result$pca_df, aes(x = .data[[input$PC1]], y = .data[[input$PC2]], color = .data[[batch]])) +
+          geom_point() +
+          labs(x = input$PC1, y = input$PC2, color = "Batch") +
+          theme(
+            axis.title.x = element_text(size = 12, face = "bold"),
+            axis.title.y = element_text(size = 12, face = "bold"),
+            axis.text.x = element_text(size = 12, face = "bold"),
+            axis.text.y = element_text(size = 12, face = "bold"),
+          )
+        if(input$pca_label == "No"){pca_plot_base + guides(color = "none")}else{pca_plot_base}
+      }else{
+        sub_pca_df = result$pca_df %>% filter(eval(parse(text = batch)) %in% input$pca_batch_select)
+        pca_plot_base = ggplot(sub_pca_df, aes(x = .data[[input$PC1]], y = .data[[input$PC2]], color = .data[[batch]])) +
+          geom_point() +
+          labs(x = input$PC1, y = input$PC2, color = "Batch") +
+          theme(
+            axis.title.x = element_text(size = 12, face = "bold"),
+            axis.title.y = element_text(size = 12, face = "bold"),
+            axis.text.x = element_text(size = 12, face = "bold"),
+            axis.text.y = element_text(size = 12, face = "bold"),
+          )
+        if(input$pca_label == "No"){pca_plot_base + guides(color = "none")}else{pca_plot_base}
+      }
     })
     output$tsne = shiny::renderPlot({
-      ggplot(result$tsne_df, aes(x = cor_1, y = cor_2, color = result$tsne_df[[batch]])) +
-        geom_point() +
-        labs(x = "Dim 1", y = "Dim 2", color = "Batch") +
-        guides(color = "none") +
-        theme(
-          axis.title.x = element_text(size = 12, face = "bold"),
-          axis.title.y = element_text(size = 12, face = "bold"),
-          axis.text.x = element_text(size = 12, face = "bold"),
-          axis.text.y = element_text(size = 12, face = "bold"),
-        )
+      if(input$pca_all == "Yes"){
+        tsne_plot_base = ggplot(result$tsne_df, aes(x = cor_1, y = cor_2, color = .data[[batch]])) +
+          geom_point() +
+          labs(x = "Dim 1", y = "Dim 2", color = "Batch") +
+          theme(
+            axis.title.x = element_text(size = 12, face = "bold"),
+            axis.title.y = element_text(size = 12, face = "bold"),
+            axis.text.x = element_text(size = 12, face = "bold"),
+            axis.text.y = element_text(size = 12, face = "bold"),
+          )
+        if(input$pca_label == "No"){tsne_plot_base + guides(color = "none")}else{tsne_plot_base}
+      }else{
+        sub_tsne_df = result$tsne_df %>% filter(eval(parse(text = batch)) %in% input$pca_batch_select)
+        tsne_plot_base = ggplot(sub_tsne_df, aes(x = cor_1, y = cor_2, color = .data[[batch]])) +
+          geom_point() +
+          labs(x = "Dim 1", y = "Dim 2", color = "Batch") +
+          theme(
+            axis.title.x = element_text(size = 12, face = "bold"),
+            axis.title.y = element_text(size = 12, face = "bold"),
+            axis.text.x = element_text(size = 12, face = "bold"),
+            axis.text.y = element_text(size = 12, face = "bold"),
+          )
+        if(input$pca_label == "No"){tsne_plot_base + guides(color = "none")}else{tsne_plot_base}
+      }
     })
 
     ############### Harmonization if needed #############################
@@ -915,7 +952,7 @@ comfam_shiny = function(result, after = FALSE, ...){
         combat_result_s(combat_result)
         harm_df = combat_result$harmonized_df
         if(length(save_path) > 0 & save_path != ""){
-          write.csv(harm_df, save_path)
+          write.csv(harm_df, save_path, row.names = FALSE)
         }
         setProgress(1, 'Complete!')
       })
