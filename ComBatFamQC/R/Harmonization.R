@@ -197,8 +197,21 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
         reference[[r]] = as.factor(reference[[r]])
       }
     }
-    untauched = df %>% semi_join(reference)
-    new_data = df %>% anti_join(reference)
+    ## check if reference data is included in the new data
+    other_info = setdiff(colnames(reference), features)
+    n_ref = df %>% semi_join(reference[other_info]) %>% nrow() 
+    if(n_ref == nrow(reference)){
+      message("The reference data is included in the new unharmonized dataset")
+      untouched = reference
+      new_data = df %>% anti_join(reference[other_info])
+    }else{
+      message("The reference data is separated from the new unharmonized dataset")
+      untouched = NULL
+      new_data = df
+    }
+    
+    #untauched = df %>% semi_join(reference)
+    #new_data = df %>% anti_join(reference)
     reference[[batch]] = "reference"
     df_c = rbind(reference, new_data)
     df_c[[batch]] = as.factor(df_c[[batch]])
@@ -281,13 +294,13 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       comf_df = ComBat_run$dat.covbat[(nrow(reference)+1):nrow(df_c),]
       comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
       comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untauched, comf_df)
+      comf_df = rbind(untouched, comf_df)
     }else{
       com_family = "comfam"
       comf_df = ComBat_run$dat.combat[(nrow(reference)+1):nrow(df_c),]
       comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
       comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untauched, comf_df)
+      comf_df = rbind(untouched, comf_df)
     }
   }
   comf_df = comf_df[colnames(df)]
