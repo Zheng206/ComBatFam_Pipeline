@@ -20,6 +20,7 @@ combat_harm(
   predict = FALSE,
   object = NULL,
   reference = NULL,
+  out_ref_include = TRUE,
   ...
 )
 }
@@ -55,6 +56,8 @@ combat_harm(
 \item{object}{Existing ComBat model.}
 
 \item{reference}{Dataset to be considered as the reference group.}
+
+\item{out_ref_include}{A boolean variable indicating whether the reference data should be included in the harmonized data output.}
 
 \item{...}{Additional arguments to \code{comfam} or \code{covfam} models.}
 }

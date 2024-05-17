@@ -18,9 +18,9 @@ knitr::opts_chunk$set(
 
 The need for larger samples in human subjects research have led to a trend of aggregating data across multiple locations (sites). This trend is especially prevalent in neuroimaging research. However, while the larger samples promoted greater power to detect significant associations as well as better generalizability of results, multiple-site study designs also introduce heterogeneity in acquisition and processing, which might consequently impact study findings.
 
-ComBat is used as the major harmonization technique in neuroimaging and the ComBat Family further extends the original ComBat methodology to enable flexible covariate modeling, leveraging efficient R implementations of regression models. However, it remains a challenge to evaluate the performance of harmonization. ComBatFamQC provides a useful visualization tool through Rshiny for interactive batch effect diagnostics before and after harmonization. ComBatFamQC also provides default harmonization methods by integrating the ComBatFamily package. 
+ComBat is used as the major harmonization technique in neuroimaging and the ComBat Family further extends the original ComBat methodology to enable flexible covariate modeling, leveraging efficient R implementations of regression models. However, it remains a challenge to evaluate potential batch effects as well as the performance of harmonization. ComBatFamQC provides a useful visualization tool through Rshiny for interactive batch effect diagnostics before and after harmonization. To streamline the harmonization process and improve efficiency, transparency, and reproducibility, ComBatFamQC also provides default harmonization methods by integrating the ComBatFamily package.
 
-The ComBatFamQC visualization includes two key functions:
+The ComBatFamQC visualization includes three key functions:
 
 -   `visual_prep`: provides all relevant statistical test results for batch effect visualization and evaluation.
 -   `combat_harm`: provides default harmonization methods from the ComBatFamily package.
@@ -36,7 +36,7 @@ The ComBatFamQC includes the following harmonziation methods:
 
 # Set up
 
-Import ComBatFamQC package and read in the data set to be harmonized. Adni data is used in the vignette for illustration. To be noticed, the data set should include at least the following columns:
+Install the ComBatFamQC package and read in the data set to be harmonized. Adni data is used in the vignette for illustration. To be noticed, the data set should include at least the following columns:
 
 -   batch column
 -   feature columns (make sure univariate column is excluded)
@@ -45,6 +45,7 @@ Import ComBatFamQC package and read in the data set to be harmonized. Adni data 
 
 ```{r setup}
 library(ComBatFamQC)
+library(tidyverse)
 data(adni)
 ```
 
@@ -53,8 +54,8 @@ data(adni)
 Three types of regression models can be considered for batch effect evaluation:
 
 -   `lm`: Linear regression model, which assumes that the relationship between the variables is linear.
--   `gam`: Generalized additive model, which models the relationship between the dependent variable and each independent variable as a smooth, non-linear function, typically using splines.
--   `lmer`: Linear mixed-effects model, which extends the linear regression model to account for both fixed effects and random effects. It us commonly used in longitudinal datasets.
+-   `gam`: Generalized additive model, which models the relationship between the dependent variable and certain independent variable as a smooth, non-linear function, typically using splines.
+-   `lmer`: Linear mixed-effects model, which extends the linear regression model to account for both fixed effects and random effects. It is commonly used in longitudinal datasets.
 
 (**Note**: For Windows users, make sure to set `cores = 1` in `visual_prep` function. The MDMR test can be time-consuming, especially in large datasets. Users have the option to disable the MDMR test by setting `mdmr = FALSE`.)
 
@@ -85,12 +86,12 @@ comfam_shiny(result_lmer)
 
 # Harmonization Using default ComBatFamily Methods
 
-There are two types of harmonization process users can choose from:
+There are two types of harmonization scenarios users can choose from:
 
 -   First-time Harmonization (Can also do interactive harmonization through Rshiny)
 -   Out of Sample Harmonization
-    -   predict from existing combat model (works only for **original ComBat** and **ComBat-GAM**)
-    -   harmonize new data toward existing reference data (works only for all default combat harmonization methods)
+    -   predict from existing ComBat model (works only for **original ComBat** and **ComBat-GAM**)
+    -   harmonize new data toward existing reference data (works for all built-in ComBat harmonization methods)
 
 ## First-time Harmonization
 

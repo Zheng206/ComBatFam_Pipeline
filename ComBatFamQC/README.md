@@ -1,19 +1,27 @@
 # ComBatFamQC
 
-The **ComBatFamQC** package is a powerful tool designed to streamline statistical analysis and interactive visualization for harmonization quality control needs. This package is sepcifically tailored for evaluating batch effects before and after applying ComBatFamily harmonization method, providing life span age trends of brain structures and residual data sets eliminating specific covariates' effects if needed. In terms of the final delivery, it will provide an interactive visualization through R shiny for batch effect and age trend visualization. Additionaly, it itegrated harmonization process and can provide harmonized data set, fitted combat model, residual data set, fitted regression model etc.
+The **ComBatFamQC** package is a powerful tool designed to streamline interactive batch effect diagnostics, harmonization, and post-harmonization downstream analysis. This package is specifically tailored to provide both interactive qualitative visualization and statistical testing for batch effects diagnostics, as well as to offer various easily-used built-in harmonization techniques to facilitate a better harmonization process.
+
+Additionally, the package provides life span age trends of brain structures and residual datasets, eliminating specific covariates' effects to better conduct post-harmonization downstream analysis. In terms of the final delivery, it will provide interactive visualization through R Shiny for batch effect diagnostics and age trend visualization. Additionally, it integrates the harmonization process and can provide a harmonized dataset, fitted ComBat model, residual dataset, fitted regression model, etc.
 
 ## Diagram
-![ComBatFamQC Diagram](/figure/diagram.png)
+![ComBatFamQC Diagram](/figure/ComBatFamQC_diagram.png)
 
 ## Package Features
 
-The ComBatFamQC package offers the following four key functionalities:
+The ComBatFamQC package offers the following five key functionalities:
 
-1. <u>**Harmonization and Visualization**</u>
+1. <u>**Interactive Batch Effect Diagnostics & Harmonization**</u>
 
--   **Statistical Analysis and Harmonization**: ComBatFamQC simplifies the process of performing statistical analyses to detect potential batch effects. It provides you with all relevant statistical test results for batch effect visualization and evaluation. ComBatFamQC also integrates harmonization methods from the ComBatFamily package, offering users various built-in techniques for better and easier harmonization.
+-   **Batch Effect Diagnostics**: ComBatFamQC provides two types of batch effect diagnostics methods for both individual batch effects and global batch effects: 1) Qualitative Visualization and 2) Statistical Testing. It simplifies the process of performing statistical analyses to detect potential batch effects and provides all relevant statistical test results for batch effect visualization and evaluation.
 
--   **Interactive Visualization through R shiny**: The ComBatFamQC package comes with an interactive visualization tool built on R shiny, providing an intuitive user interface to explore and evaluate batch effects, as well as conduct interactive harmonization if needed. The output is organized into multiple tabs, which includes:
+-   **Harmonization**: ComBatFamQC also provides four types of commonly used harmonization techniques, integrated through the [ComBatFamily](https://github.com/andy1764/ComBatFamily) package developed by Dr. Andrew Chen, for users to consider. The four harmonization techniques include: 
+    -   Original ComBat
+    -   Longitudinal ComBat
+    -   ComBat-GAM
+    -   CovBat.
+
+-   **Interactive Visualization through R Shiny**: The ComBatFamQC package comes with an interactive visualization tool built on R Shiny, providing an intuitive user interface to explore and evaluate batch effects, as well as conduct interactive harmonization if needed. The output is organized into multiple tabs, which includes:
 
     -   **Data Overview**: Complete data overview and exploratory analysis
     -   **Summary**: Sample Size and Covariate Distribution
@@ -23,6 +31,7 @@ The ComBatFamQC package offers the following four key functionalities:
         -   *Statistical Tests for Additive Batch Effect*: Kenward-Roger (liner mix model), ANOVA, Kruskal-Wallis
         -   *Statistical Tests for Multiplicative Batch Effect*: Fligner-Killeen, Levene's Test, Bartlett's Test
     -   **Harmonization** Interactive Harmonization if needed
+
 2. <u>**Post-Harmonization Downstream Analysis**</u>
 
 -   **Age Trajectory** \

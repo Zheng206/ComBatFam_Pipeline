@@ -145,6 +145,7 @@ if(argv$visualization){
   message("datasets are ready! Starting shiny app......")
   comfam_shiny(result, argv$after)
 }else{
+  message("Starting harmonization......")
   harm_result = combat_harm(features = features, batch = batch, covariates = covariates, df = df, type = argv$model, random = random, smooth = smooth, interaction = interaction, smooth_int_type = smooth_int_type, family = argv$family, 
                             ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch,
                             predict = argv$predict, 
@@ -152,6 +153,7 @@ if(argv$visualization){
                             reference = reference_df)
   
   comf_df = harm_result$harmonized_df
+  if(is.na(argv$outdir)){message("Warning: The saving path is not provided, the harmonized data won't be saved!")}
   write_csv(comf_df, paste0(argv$outdir))
   message(sprintf("Results saved at %s", paste0(argv$outdir)))
   

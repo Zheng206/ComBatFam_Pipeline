@@ -22,6 +22,7 @@ require(tidyverse)
 #' @param predict A boolean variable indicating whether to run ComBat from scratch or apply existing model to new dataset (currently only work for original ComBat and ComBat-GAM).
 #' @param object Existing ComBat model.
 #' @param reference Dataset to be considered as the reference group.
+#' @param out_ref_include A boolean variable indicating whether the reference data should be included in the harmonized data output.
 #' @param ... Additional arguments to `comfam` or `covfam` models.
 #' 
 #' @return `combat_harm` returns a list containing the following components:
@@ -35,9 +36,10 @@ require(tidyverse)
 #' 
 #' @export
 
-combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates = NULL, df = NULL, type = "lm", random = NULL, smooth = NULL, interaction = NULL, smooth_int_type = NULL, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, ...){
+combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates = NULL, df = NULL, type = "lm", random = NULL, smooth = NULL, interaction = NULL, smooth_int_type = NULL, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, out_ref_include = TRUE, ...){
   
   if(!is.null(result)){
+    message("Taking the ComBatQC result as the input...")
     df = result$info$df
     char_var = result$info$char_var
     batch = result$info$batch
@@ -54,6 +56,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     df[[batch]] = as.factor(df[[batch]])
     df[char_var] =  lapply(df[char_var], as.factor)
   }else{
+    message("The ComBatQC result is not provided, the required parameters should be specified...")
     obs_n = nrow(df)
     df = df[complete.cases(df[c(features, batch, covariates, random)]),]
     obs_new = nrow(df)
@@ -129,6 +132,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
   
   if (is.null(reference)){
     if (!predict){
+      message("Starting first-time harmonization...")
       form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth)
       if(family == "comfam"){
         ComBat_run = ComBatFamily::comfam(data = df[features],
@@ -174,6 +178,8 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
         }) %>% bind_rows()
       }
     }else{
+      message("Starting out-of-sample harmonization using the saved ComBat Model...")
+      if(is.null(object)) stop("Please provide the saved ComBat model!")
       ComBat_run = predict(object = object, newdata = df[features], newbat = df[[batch]], newcovar = combat_c, ...)
       gamma_hat = ComBat_run$estimates$gamma.hat
       delta_hat = ComBat_run$estimates$delta.hat
@@ -186,12 +192,11 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
         eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
         return(eb_df_long)
       }) %>% bind_rows()
-      #print("need to add features")
     }
   }else{
+    message("Starting out-of-sample harmonization using the reference dataset...")
     reference[[batch]] = as.factor(reference[[batch]])
     reference[char_var] =  lapply(reference[char_var], as.factor)
-    #reference[enco_var] =  lapply(reference[enco_var], as.factor)
     if(!is.null(random)){
       for (r in random){
         reference[[r]] = as.factor(reference[[r]])
@@ -210,8 +215,6 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       new_data = df
     }
     
-    #untauched = df %>% semi_join(reference)
-    #new_data = df %>% anti_join(reference)
     reference[[batch]] = "reference"
     df_c = rbind(reference, new_data)
     df_c[[batch]] = as.factor(df_c[[batch]])
@@ -294,13 +297,13 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       comf_df = ComBat_run$dat.covbat[(nrow(reference)+1):nrow(df_c),]
       comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
       comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untouched, comf_df)
+      if(out_ref_include){comf_df = rbind(untouched, comf_df)}
     }else{
       com_family = "comfam"
       comf_df = ComBat_run$dat.combat[(nrow(reference)+1):nrow(df_c),]
       comf_df = cbind(new_data[other_col], new_data[batch], new_data[cov_shiny], comf_df)
       comf_df = comf_df[colnames(df)]
-      comf_df = rbind(untouched, comf_df)
+      if(out_ref_include){comf_df = rbind(untouched, comf_df)}
     }
   }
   comf_df = comf_df[colnames(df)]
