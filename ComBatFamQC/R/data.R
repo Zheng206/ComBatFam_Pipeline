@@ -6,7 +6,7 @@
 #'
 #' @usage data(adni)
 #'
-#' @format \code{"adni"} is a data frame with 1257 cases (rows) and 69 variables
+#' @format \code{"adni"} is a data frame with 2515 cases (rows) and 104 variables
 #'  (columns). 62 features are included for harmonization purpose.  
 #'
 #' @keywords datasets

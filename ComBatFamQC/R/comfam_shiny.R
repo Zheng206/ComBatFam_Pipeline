@@ -44,7 +44,7 @@ comfam_shiny = function(result, after = FALSE, ...){
   ui = function(request) {
     fluidPage(
       theme = bslib::bs_theme(version = 4, bootswatch = "minty"),
-      titlePanel("Batch Effect Visualization"),
+      titlePanel("Batch Effect Diagnostics"),
       sidebarLayout(
         sidebarPanel(
           conditionalPanel(condition="input.tabselected==2",
@@ -72,7 +72,7 @@ comfam_shiny = function(result, after = FALSE, ...){
                                title = "Selection of Principal Components ",
                                selectInput("PC1", "Select the first PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[1]),
                                selectInput("PC2", "Select the second PC", choices = colnames(result$pr.feature$x), selected = colnames(result$pr.feature$x)[2]),
-                               radioButtons("pca_label", "Select whether to include labels for the x axis.", choices = c("Yes", "No"), selected = "No"),
+                               radioButtons("pca_label", "Select whether to show the legend of plots.", choices = c("Yes", "No"), selected = "No"),
                                radioButtons("pca_all", "Select whether to include all batch levels", choices = c("Yes", "No"), selected = "Yes"),
                                uiOutput("pca_all_control"))),
                            fluidRow(
@@ -208,13 +208,13 @@ comfam_shiny = function(result, after = FALSE, ...){
                      fluidRow(
                        shinydashboard::box(
                          width = 12,
-                         title = "Batch Effect Test",
+                         title = "Additive Batch Effect Test",
                          shiny::uiOutput("test_batch_ui"),
                          shiny::uiOutput("sig_pct_batch"))),
                      fluidRow(
                        shinydashboard::box(
                          width = 12,
-                         title = "Equality of Variance Test",
+                         title = "Multiplicative Batch Effect Test",
                          shiny::uiOutput("test_variance_ui"),
                          shiny::uiOutput("sig_pct_variance")))),
             if(!after){
@@ -579,7 +579,7 @@ comfam_shiny = function(result, after = FALSE, ...){
     })
 
     output$res_add_explain = shiny::renderUI({
-      HTML(print("A <strong>noticeable deviation of the mean from zero</strong> in the additive-residual plot indicates the presence of an additive batch effect"))
+      HTML(print("A <strong>noticeable deviation of the mean from zero</strong> in the additive-residual box plot indicates the presence of an additive batch effect"))
     })
 
     output$res_add = shiny::renderPlot({
@@ -666,7 +666,7 @@ comfam_shiny = function(result, after = FALSE, ...){
     })
 
     output$res_ml_explain = shiny::renderUI({
-      HTML(print("A <strong>substantial variation</strong> in the multiplicative-residual box plots demonstrates a potential multiplicative batch effect."))
+      HTML(print("A <strong>substantial variation</strong> in the multiplicative-residual box plot demonstrates a potential multiplicative batch effect."))
     })
 
     output$res_ml = shiny::renderPlot({

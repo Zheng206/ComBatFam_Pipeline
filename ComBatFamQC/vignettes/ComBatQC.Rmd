@@ -62,7 +62,7 @@ Three types of regression models can be considered for batch effect evaluation:
 ## Linear Regression Model
 
 ```{r, eval=FALSE}
-features = colnames(adni)[c(8:69)]
+features = colnames(adni)[c(43:104)]
 covariates = c("timedays", "AGE", "SEX", "DIAGNOSIS")
 interaction = c("timedays,DIAGNOSIS")
 batch = "manufac"
@@ -99,7 +99,7 @@ Specify parameters carefully based on the harmonization method to be applied.
 
 ### Original ComBat
 ```{r, eval=FALSE}
-features = colnames(adni)[c(8:69)]
+features = colnames(adni)[c(43:104)]
 covariates = c("timedays", "AGE", "SEX", "DIAGNOSIS")
 interaction = c("timedays,DIAGNOSIS")
 batch = "manufac"
@@ -166,7 +166,7 @@ Specify `reference` parameter to be saved reference data. To be noticed, the ref
 # harmonize reference data
 reference_site = adni %>% group_by(site) %>% summarize(count = n()) %>% arrange(desc(count)) %>% pull(site) %>% head(30)
 reference_df = adni %>% filter(site %in% reference_site)
-features = colnames(reference_df)[c(8:69)]
+features = colnames(reference_df)[c(43:104)]
 covariates = c("timedays", "AGE", "SEX", "DIAGNOSIS")
 interaction = c("timedays,DIAGNOSIS")
 batch = "site"
