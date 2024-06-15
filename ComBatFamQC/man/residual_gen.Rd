@@ -11,7 +11,7 @@ residual_gen(
   interaction = NULL,
   random = NULL,
   smooth = NULL,
-  smooth_int_type = "linear",
+  smooth_int_type = NULL,
   df,
   rm = NULL,
   model = FALSE,
@@ -20,19 +20,21 @@ residual_gen(
 )
 }
 \arguments{
-\item{type}{A model function name that is to be used (eg: "lmer", "lm").}
+\item{type}{A model function name that is to be used (eg: "lmer", "lm", "gam").}
 
 \item{features}{Features/rois to extract residuals from. \emph{n x p} data frame or matrix of observations where \emph{p} is the number of features and \emph{n} is the number of subjects.}
 
 \item{covariates}{Name of covariates supplied to \code{model}.}
 
-\item{interaction}{Expression of interaction terms supplied to \code{model} (eg: "age*diagnosis").}
+\item{interaction}{Expression of interaction terms supplied to \code{model} (eg: "age,diagnosis").}
 
 \item{random}{Variable name of a random effect in linear mixed effect model.}
 
 \item{smooth}{Variable name that requires a smooth function.}
 
-\item{smooth_int_type}{Indicates the type of interaction in \code{gam} models. By default, smooth_int_type is set to be "linear", representing linear interaction terms. "factor-smooth" represents categorical-continuous interactions and "tensor" represents interactions with different scales.}
+\item{smooth_int_type}{Indicates the type of interaction in \code{gam} models. By default, smooth_int_type is set to be "linear", representing linear interaction terms.
+"categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth),
+"tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.}
 
 \item{df}{Harmonized dataset to extract residuals from.}
 

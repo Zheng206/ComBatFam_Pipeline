@@ -8,17 +8,17 @@ suppressMessages(library(parallel))
 p <- arg_parser("Post-harmonization processing step", hide.opts = FALSE)
 p <- add_argument(p, "data", help = "path to the CSV or EXCEL file that contains data to be harmonized, covariates and batch information")
 p <- add_argument(p, "--type", short = '-t', help = "post-harmonization processing type, eg: residual or age_trend", default = "age_trend")
-p <- add_argument(p, "--rois", short = '-r', help = "position of roi data(column numbers), eg: 1-5,9")
-p <- add_argument(p, "--age", short = '-a', help = "column name of the age variable")
-p <- add_argument(p, "--sex", help = "column name of the sex variable")
-p <- add_argument(p, "--icv", help = "column name of the ICV variable")
-p <- add_argument(p, "--female", help = "female indicator, the value represent female in sex column.")
+p <- add_argument(p, "--features", short = '-f', help = "position of features/rois data(column numbers), eg: 1-5,9")
+p <- add_argument(p, "--AGE", help = "column position of the age variable")
+p <- add_argument(p, "--SEX", help = "column position of the sex variable")
+p <- add_argument(p, "--ICV", help = "column position of the ICV variable")
+p <- add_argument(p, "--Female", help = "female indicator, the value represent female in sex column.")
 p <- add_argument(p, "--lowerquantile", short = '-l', help = "Specify a lower bound quantile. eg: 0.05, 0.25.", default = 0.25)
 p <- add_argument(p, "--upperquantile", short = '-u', help = "Specify a upper bound quantile. eg: 0.75, 0.95.", default = 0.75)
-p <- add_argument(p, "--mu", short = '-m', help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the mu formula. smooth: y ~ pb(age), linear: y ~ age, default: y ~ 1.", default = "smooth")
-p <- add_argument(p, "--sigma", help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the sigma formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "smooth")
-p <- add_argument(p, "--nu", short = '-n', help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the nu formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
-p <- add_argument(p, "--tau", short = '-t', help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the tau formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
+p <- add_argument(p, "--Mu", help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the mu formula. smooth: y ~ pb(age), linear: y ~ age, default: y ~ 1.", default = "smooth")
+p <- add_argument(p, "--Sigma", help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the sigma formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "smooth")
+p <- add_argument(p, "--Nu", help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the nu formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
+p <- add_argument(p, "--Tau", help = "An indicator of whether to smooth age variable, include it as a linear term or only include the intercept in the tau formula. smooth: ~ pb(age), linear: ~ age, default: ~ 1.", default = "default")
 p <- add_argument(p, "--covariates", short = '-c', help = "position of covariates (column numbers)", default = "NULL")
 p <- add_argument(p, "--model", short = '-m', help = "select the model function for harmonization, eg: lm, gam", default = "lm")
 p <- add_argument(p, "--smooth", short = '-s', help = "provide the variables that require a smooth function", default = "NULL")
@@ -41,8 +41,8 @@ if(is.na(argv$data)) stop("Missing input data") else {
   }
 }
 df = data.frame(df)
-if(is.na(argv$rois)) stop("Please identify the position of rois.") else {
-  col = gsub("-",":",argv$rois)
+if(is.na(argv$features)) stop("Please identify the position of features/rois.") else {
+  col = gsub("-",":",argv$features)
   col_vec = eval(parse(text = paste0("c(", col, ")")))
 }
 
@@ -55,12 +55,16 @@ if (argv$cores == "all"){
 }
 
 if(argv$type == "age_trend"){
-  age = argv$age
-  sex = argv$sex
-  icv = argv$icv
+  message("Start....")
+  age = colnames(df)[as.numeric(argv$AGE)]
+  sex = colnames(df)[as.numeric(argv$SEX)]
+  icv = colnames(df)[as.numeric(argv$ICV)]
+  print(paste0(c(age, sex, icv)))
   df[[sex]] = as.factor(df[[sex]])
-  df = df %>% mutate(sex = case_when(sex == argv$female ~ "F",
-                                     .default = "M"))
+  df[[sex]] = sapply(df[[sex]], function(x){
+    if(x == argv$Female){return("F")}else{return("M")}
+  }, USE.NAMES = FALSE)
+  message("Create sub_df(s)....")
   # Create sub_df for different features
   df_var = paste0("sub_df_", 1:length(features))
   for (i in 1:length(features)){
@@ -72,7 +76,7 @@ if(argv$type == "age_trend"){
   # Create age_list
   
   age_list = mclapply(1:length(features), function(w){
-    age_sub = age_list_gen (sub_df = eval(parse(text = paste0("sub_df_",w))),  lq = as.numeric(argv$lowerquantile), hq = as.numeric(argv$upperquantile), mu = argv$mu, sigma = argv$sigma, nu = argv$nu, tau = argv$tau)
+    age_sub = age_list_gen (sub_df = eval(parse(text = paste0("sub_df_",w))),  lq = as.numeric(argv$lowerquantile), hq = as.numeric(argv$upperquantile), mu = argv$Mu, sigma = argv$Sigma, nu = argv$Nu, tau = argv$Tau)
     return(age_sub)
   }, mc.cores = cores) 
   names(age_list) = features
@@ -97,8 +101,6 @@ if(argv$type == "age_trend"){
       smooth_col = gsub("-",":",argv$smooth)
       smooth_col = eval(parse(text = paste0("c(", smooth_col, ")")))
       smooth_var = colnames(df)[smooth_col]
-      #cov_var = colnames(df)[cov_col]
-      #cov_var = setdiff(cov_var, smooth_var)
       smooth = smooth_var
     }
   }else{
@@ -117,14 +119,18 @@ if(argv$type == "age_trend"){
     random = eval(parse(text = argv$random))
   }
   
-  # Interaction Wranggling
-  if(argv$interaction == "NULL"){interaction = eval(parse(text = argv$interaction))}else{
+  ## Interaction Wranggling
+  if(argv$interaction == "NULL"){
+    interaction = eval(parse(text = argv$interaction))
+    smooth_int_type = NULL
+  }else{
     interaction_l = lapply(str_split(argv$interaction, ",")[[1]], function(x) str_split(x,  "\\*")[[1]])
     interaction = sapply(interaction_l, function(x){
       x1 = colnames(df)[as.numeric(x[1])]
       x2 = colnames(df)[as.numeric(x[2])]
       element = paste0(x1, ",", x2)
     }, USE.NAMES = FALSE)
+    smooth_int_type = str_split(argv$int_type, ",")[[1]]
   }
   
   if(argv$rm == "NULL"){
@@ -136,7 +142,7 @@ if(argv$type == "age_trend"){
   }
   
   # Generate residuals
-  result = residual_gen(type = argv$model, features = features, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = argv$int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path, cores = cores)
+  result = residual_gen(type = argv$model, features = features, covariates = covariates, interaction = interaction, smooth = smooth, smooth_int_type = smooth_int_type, random = random, df = df, rm = rm, model = argv$exist.model, model_path = argv$model.path, cores = cores)
   
   if(!is.na(argv$outdir)){
     message("Saving residual data......")
