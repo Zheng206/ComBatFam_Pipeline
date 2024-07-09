@@ -33,6 +33,7 @@ require(tidyverse)
 #'
 #' @import tidyverse
 #' @import ComBatFamily
+#' @importFrom stats formula
 #' 
 #' @export
 
@@ -56,7 +57,34 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     df[[batch]] = as.factor(df[[batch]])
     df[char_var] =  lapply(df[char_var], as.factor)
   }else{
-    message("The ComBatQC result is not provided, the required parameters should be specified...")
+    if(!predict){
+      message("The ComBatQC result is not provided, the required parameters should be specified...")}else{
+      if(is.null(object)) stop("Please provide the saved ComBat model!")
+      batch = object$batch.name
+      model_type = class(object$ComBat.model$fits[[1]])[1]
+      features = colnames(object$ComBat.model$estimates$stand.mean)
+      form_str = as.character(formula(object$ComBat.model$fits[[1]]))[3]
+      if(model_type == "lm"){
+        covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:", str_split(form_str, "\\+")[[1]]))]
+        covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+        random = NULL
+        type = "lm"
+      }else if(model_type == "lmerMod"){
+        covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:|\\(1", str_split(form_str, "\\+")[[1]]))]
+        covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+        random = str_split(form_str, "\\+")[[1]][which(grepl("\\(1", str_split(form_str, "\\+")[[1]]))]
+        random = sapply(random, function(x) gsub(" ", "", gsub("\\)", "", str_split(x, "\\|")[[1]][2])), USE.NAMES = FALSE)
+        type = "lmer"
+      }else if(model_type == "gam"){
+        covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:|s\\(", str_split(form_str, "\\+")[[1]]))]
+        covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+        smooth_term = str_split(form_str, "\\+")[[1]][which(grepl("s\\(", str_split(form_str, "\\+")[[1]]))]
+        smooth_term = sapply(smooth_term, function(x) gsub("\\) ", "", gsub(" s\\(", "", x)), USE.NAMES = FALSE)
+        covariates = c(covariates, smooth_term)
+        random = NULL
+        type = "gam"
+      }
+    }
     obs_n = nrow(df)
     df = df[complete.cases(df[c(features, batch, covariates, random)]),]
     obs_new = nrow(df)
@@ -179,8 +207,8 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       }
     }else{
       message("Starting out-of-sample harmonization using the saved ComBat Model...")
-      if(is.null(object)) stop("Please provide the saved ComBat model!")
-      ComBat_run = predict(object = object, newdata = df[features], newbat = df[[batch]], newcovar = combat_c, ...)
+      #if(is.null(object)) stop("Please provide the saved ComBat model!")
+      ComBat_run = predict(object = object$ComBat.model, newdata = df[features], newbat = df[[batch]], newcovar = combat_c, ...)
       gamma_hat = ComBat_run$estimates$gamma.hat
       delta_hat = ComBat_run$estimates$delta.hat
       gamma_prior = ComBat_run$estimates$gamma.prior
@@ -307,6 +335,6 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     }
   }
   comf_df = comf_df[colnames(df)]
-  combat_result =  list("eb_df" = eb_df, "com_family" = com_family, "harmonized_df" = comf_df, "combat.object" = ComBat_run)
+  combat_result =  list("eb_df" = eb_df, "com_family" = com_family, "harmonized_df" = comf_df, "combat.object" = list("ComBat.model" = ComBat_run, "batch.name" = batch))
   return(combat_result)
 }
