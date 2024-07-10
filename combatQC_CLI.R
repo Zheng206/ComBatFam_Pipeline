@@ -46,91 +46,154 @@ message('Checking inputs...')
 ## Checking the Data input
 if(is.na(argv$data)) stop("Missing input data") else {
   if(!grepl("csv$|xls$", argv$data)) stop("Input file must be a csv or an excel file") else {
+    message('Loading data...')
     if(grepl("csv$", argv$data)) df = read_csv(argv$data) else df = read_excel(argv$data)
   }
 }
 
 df = data.frame(df)
-
+## Checking data
+if(!argv$predict){
 ## Checking the Batch input
-if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
-  bat_col = as.numeric(argv$batch)
-  batch = colnames(df)[bat_col]
-}
-
-## Checking the Features input
-if(is.na(argv$features)) stop("Please identify the position of data to be harmonized") else {
-  col = gsub("-",":",argv$features)
-  col_vec = eval(parse(text = paste0("c(", col, ")")))
-  features = colnames(df)[col_vec]
-}
-
-## Checking the Covariates input
-if(argv$covariates == "NULL") {
-  cov_col = NULL
-  covariates = NULL
-} else {
-  cov_col = gsub("-",":",argv$covariates)
-  cov_col = eval(parse(text = paste0("c(", cov_col, ")")))
-  covariates = colnames(df)[cov_col]
-}
-
-## Checking the Smooth Terms input
-if(argv$model == "gam"){
-  if(argv$covariates == "NULL") stop("Please provide covariates for gam model")
-  if(argv$smooth == "NULL") stop("Please provide variables that require a smoothing function") else {
-    smooth_col = gsub("-",":",argv$smooth)
-    smooth_col = eval(parse(text = paste0("c(", smooth_col, ")")))
-    smooth_var = colnames(df)[smooth_col]
-    smooth = smooth_var
+  message('Beginning data verification...')
+  if(is.na(argv$batch)) stop("Please identify the position of batch column") else {
+    bat_col = as.numeric(argv$batch)
+    batch = colnames(df)[bat_col]
+    message(paste0('The provided batch column is: ', batch))
   }
-}else{
-  smooth = eval(parse(text = argv$smooth))
-}
-
-## Checking the Random Effects input
-if(argv$model == "lmer"){
-  if(argv$random == "NULL") stop("Please specify random intercept-effects") else {
-    random_col = gsub("-",":",argv$random)
-    random_col = eval(parse(text = paste0("c(", random_col, ")")))
-    random_var = colnames(df)[random_col]
-    random = random_var
+  
+  ## Checking the Features input
+  if(is.na(argv$features)) stop("Please identify the position of data to be harmonized") else {
+    col = gsub("-",":",argv$features)
+    col_vec = eval(parse(text = paste0("c(", col, ")")))
+    features = colnames(df)[col_vec]
+    features_wrong = colnames(df[features])[sapply(df[features], is.character)]
+    if(length(features) == 1){
+      if(length(features_wrong) == 0){
+        message('Only one feature needs to be harmonized, and the data type is correct!')
+      }else{
+        message('Only one feature needs to be harmonized, and the data type is incorrect: it is character data!')
+        stop("Incorrect feature type!")
+      }
+    }else{
+      if(length(features_wrong) == 0){
+        message(paste0('There are ', length(features), ' features to be harmonized, and the data types of all the feature columns are correct!'))
+      }else{
+        message(paste0('There are ', length(features), ' features to be harmonized, and the data types of ', length(features_wrong), ' feature columns are incorrect: they are character data!'))
+        message('The wrong features are: ', paste0(features_wrong, collapse = ","))
+        stop(paste0("Incorrect feature type! Considering removing ", paste0(which(colnames(df) %in% features_wrong), collapse = ","), " column."))
+      }
+    }
   }
-}else{
-  random_col = eval(parse(text = argv$random))
-  random = eval(parse(text = argv$random))
-}
-
-## Read in the Reference Data (if it is provided)
-if(argv$reference != "NULL"){
-  if(!grepl("csv$|xls$", argv$reference)) stop("Input file must be a csv or an excel file") else {
-    if(grepl("csv$", argv$reference)) reference_df = read_csv(argv$reference) else reference_df = read_excel(argv$reference)
+  
+  ## Checking the Covariates input
+  if(argv$covariates == "NULL") {
+    cov_col = NULL
+    covariates = NULL
+  } else {
+    cov_col = gsub("-",":",argv$covariates)
+    cov_col = eval(parse(text = paste0("c(", cov_col, ")")))
+    covariates = colnames(df)[cov_col]
+    if(length(covariates) == 1){
+      message(paste0('The provided covariate column is: ', covariates))
+    }else{
+      message(paste0('The provided covariate columns are: ', paste0(covariates, collapse = ",")))
+    }
   }
-  reference_df = reference_df[complete.cases(reference_df[c(col_vec, bat_col, cov_col, random_col)]),]
+  
+  ## Checking the Smooth Terms input
+  if(argv$model == "gam"){
+    if(argv$covariates == "NULL") stop("Please provide covariates for gam model")
+    if(argv$smooth == "NULL") stop("Please provide variables that require a smoothing function") else {
+      smooth_col = gsub("-",":",argv$smooth)
+      smooth_col = eval(parse(text = paste0("c(", smooth_col, ")")))
+      smooth_var = colnames(df)[smooth_col]
+      smooth = smooth_var
+      if(length(smooth) == 1){
+        message(paste0('The provided smooth term is: ', smooth))
+      }else{
+        message(paste0('The provided smooth terms are: ', paste0(smooth, collapse = ",")))
+      }
+    }
+  }else{
+    smooth = eval(parse(text = argv$smooth))
+  }
+  
+  ## Checking the Random Effects input
+  if(argv$model == "lmer"){
+    if(argv$random == "NULL") stop("Please specify random intercept-effects") else {
+      random_col = gsub("-",":",argv$random)
+      random_col = eval(parse(text = paste0("c(", random_col, ")")))
+      random_var = colnames(df)[random_col]
+      random = random_var
+      if(length(random) == 1){
+        message(paste0('The provided random effect variable is: ', random))
+      }else{
+        message(paste0('The provided random effect variables are: ', paste0(random, collapse = ",")))
+      }
+    }
+  }else{
+    random_col = eval(parse(text = argv$random))
+    random = eval(parse(text = argv$random))
+  }
+  
+  ## Read in the Reference Data (if it is provided)
+  if(argv$reference != "NULL"){
+    if(!grepl("csv$|xls$", argv$reference)) stop("Input file must be a csv or an excel file") else {
+      if(grepl("csv$", argv$reference)) reference_df = read_csv(argv$reference) else reference_df = read_excel(argv$reference)
+    }
+    if(sum(!c(col_vec, bat_col, cov_col, random_col) %in% colnames(reference_df)) > 0) stop("Columns do not match between your reference dataset and the dataset to be harmonized!")
+    reference_df = reference_df[complete.cases(reference_df[c(col_vec, bat_col, cov_col, random_col)]),]
+  }else{
+    reference_df = NULL
+  }
+  
+  ## Interaction Wranggling
+  if(argv$interaction == "NULL"){
+    interaction = eval(parse(text = argv$interaction))
+    smooth_int_type = NULL
+    }else{
+    interaction_l = lapply(str_split(argv$interaction, ",")[[1]], function(x) str_split(x,  "\\*")[[1]])
+    interaction = sapply(interaction_l, function(x){
+      x1 = colnames(df)[as.numeric(x[1])]
+      x2 = colnames(df)[as.numeric(x[2])]
+      element = paste0(x1, ",", x2)
+    }, USE.NAMES = FALSE)
+    smooth_int_type = str_split(argv$int_type, ",")[[1]]
+    }
+  message('The interaction term can be found below: ', paste0(gsub(",", "*", interaction), collapse = ","))
+  message('The interaction term type can be found below: ', paste0(smooth_int_type, collapse = ","))
+  object = NULL
 }else{
-  reference_df = NULL
-}
-
-## Read in the ComBat Model (if it is provided)
-if(argv$predict){
+  message("Starting data check for out-of-sample harmonization......")
   if(argv$object == "NULL") stop("Please provide a ComBat model for out-of-sample harmonization") else {
     object = readRDS(argv$object)
+    batch = object$batch.name
+    model_type = class(object$ComBat.model$fits[[1]])[1]
+    features = colnames(object$ComBat.model$estimates$stand.mean)
+    form_str = as.character(formula(object$ComBat.model$fits[[1]]))[3]
+    if(model_type == "lm"){
+      covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:", str_split(form_str, "\\+")[[1]]))]
+      covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+      random = NULL
+      type = "lm"
+    }else if(model_type == "lmerMod"){
+      covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:|\\(1", str_split(form_str, "\\+")[[1]]))]
+      covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+      random = str_split(form_str, "\\+")[[1]][which(grepl("\\(1", str_split(form_str, "\\+")[[1]]))]
+      random = sapply(random, function(x) gsub(" ", "", gsub("\\)", "", str_split(x, "\\|")[[1]][2])), USE.NAMES = FALSE)
+      type = "lmer"
+    }else if(model_type == "gam"){
+      covariates = str_split(form_str, "\\+")[[1]][which(!grepl("batch|:|s\\(", str_split(form_str, "\\+")[[1]]))]
+      covariates = sapply(covariates, function(x) gsub(" ", "", x), USE.NAMES = FALSE)
+      smooth_term = str_split(form_str, "\\+")[[1]][which(grepl("s\\(", str_split(form_str, "\\+")[[1]]))]
+      smooth_term = sapply(smooth_term, function(x) gsub("\\) ", "", gsub(" s\\(", "", x)), USE.NAMES = FALSE)
+      covariates = c(covariates, smooth_term)
+      random = NULL
+      type = "gam"
+    }
+    if(sum(!c(covariates, random, features) %in% colnames(df)) > 0) stop("Columns do not match!")
   }
-}else{object = NULL}
-
-
-## Interaction Wranggling
-if(argv$interaction == "NULL"){
-  interaction = eval(parse(text = argv$interaction))
-  smooth_int_type = NULL
-  }else{
-  interaction_l = lapply(str_split(argv$interaction, ",")[[1]], function(x) str_split(x,  "\\*")[[1]])
-  interaction = sapply(interaction_l, function(x){
-    x1 = colnames(df)[as.numeric(x[1])]
-    x2 = colnames(df)[as.numeric(x[2])]
-    element = paste0(x1, ",", x2)
-  }, USE.NAMES = FALSE)
-  smooth_int_type = str_split(argv$int_type, ",")[[1]]
 }
 
 
@@ -146,11 +209,12 @@ if(argv$visualization){
   comfam_shiny(result, argv$after)
 }else{
   message("Starting harmonization......")
-  harm_result = combat_harm(features = features, batch = batch, covariates = covariates, df = df, type = argv$model, random = random, smooth = smooth, interaction = interaction, smooth_int_type = smooth_int_type, family = argv$family, 
+  if(argv$predict){harm_result = combat_harm(df = df, predict = argv$predict, object = object)}else{
+                  harm_result = combat_harm(features = features, batch = batch, covariates = covariates, df = df, type = argv$model, random = random, smooth = smooth, interaction = interaction, smooth_int_type = smooth_int_type, family = argv$family, 
                             ref.batch = if(argv$ref.batch == "NULL") eval(parse(text = argv$ref.batch)) else argv$ref.batch,
                             predict = argv$predict, 
                             object = object,
-                            reference = reference_df)
+                            reference = reference_df)}
   
   comf_df = harm_result$harmonized_df
   if(is.na(argv$outdir)){message("Warning: The saving path is not provided, the harmonized data won't be saved!")}
@@ -160,9 +224,9 @@ if(argv$visualization){
   if(!is.na(argv$mout)){
     message("Saving ComBat model......")
     if(harm_result$com_family == "comfam"){
-      harm_result$combat.object$dat.combat = NULL
+      harm_result$combat.object$ComBat.model$dat.combat = NULL
     }else{
-      harm_result$combat.object$dat.covbat = NULL
+      harm_result$combat.object$ComBat.model$dat.covbat = NULL
     }
     saveRDS(harm_result$combat.object, argv$mout)
     message(sprintf("ComBat model saved at %s", argv$mout))  
