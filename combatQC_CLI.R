@@ -9,7 +9,7 @@ suppressMessages(library(mgcv))
 suppressMessages(library(parallel))
 
 ## Read in arguments
-p <- arg_parser("Apply ComBatFamily harmonization method to remove bathch effect", hide.opts = FALSE)
+p <- arg_parser("Streamline interactive batch effect diagnostics and apply ComBat harmonization", hide.opts = FALSE)
 p <- add_argument(p, "data", help = "path to the CSV or EXCEL file that contains data to be harmonized, covariates and batch information")
 p <- add_argument(p, "--visualization", short = '-v', help = "a boolean variable indicating whether to run harmonization or batch effect visualization. TRUE indicates batch effect visualization.", default = TRUE)
 p <- add_argument(p, "--after", short = '-a', help = "a boolean variable indicating whether the dataset is before or after harmonization. TRUE indicates the dataset is after harmonization.", default = FALSE)

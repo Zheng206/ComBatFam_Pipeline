@@ -155,7 +155,7 @@ Specify `predict` parameter to be TRUE and `object` parameter to be saved ComBat
 
 ```{r, eval=FALSE}
 saved_model = combat_model_gam$combat.object
-harm_predict = combat_harm(type = "gam", features = features, batch = batch, covariates = covariates, interaction = interaction, smooth_int_type = "linear", smooth = "AGE", df = adni %>% head(1000), predict = TRUE, object = saved_model)
+harm_predict = combat_harm(df = adni %>% head(1000), predict = TRUE, object = saved_model)
 ```
 
 ### from Reference Data
