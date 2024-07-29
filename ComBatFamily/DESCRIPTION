@@ -8,7 +8,7 @@ Description: Implements the ComBat and CovBat Family of harmonization methods fo
 License: Artistic-2.0
 Encoding: UTF-8
 VignetteBuilder: knitr
-Suggests: knitr, rmarkdown, devtools, testthat, remotes
+Suggests: knitr, rmarkdown, devtools, testthat, remotes, longCombat, neuroCombat
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
@@ -17,12 +17,8 @@ Imports:
     lme4, 
     mgcv, 
     quantreg,
-    longCombat,
-    neuroCombat,
     CovBat,
     methods
-Remotes: jcbeer/longCombat, 
-        jfortin1/neuroCombat_Rpackage, 
-        andy1764/CovBat_Harmonization/R
+Remotes: andy1764/CovBat_Harmonization/R
 
 

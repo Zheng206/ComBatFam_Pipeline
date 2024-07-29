@@ -142,8 +142,8 @@ if(!argv$predict){
     if(!grepl("csv$|xls$", argv$reference)) stop("Input file must be a csv or an excel file") else {
       if(grepl("csv$", argv$reference)) reference_df = read_csv(argv$reference) else reference_df = read_excel(argv$reference)
     }
-    if(sum(!c(col_vec, bat_col, cov_col, random_col) %in% colnames(reference_df)) > 0) stop("Columns do not match between your reference dataset and the dataset to be harmonized!")
-    reference_df = reference_df[complete.cases(reference_df[c(col_vec, bat_col, cov_col, random_col)]),]
+    if(sum(!c(features, batch, covariates, random) %in% colnames(reference_df)) > 0) stop("Columns do not match between your reference dataset and the dataset to be harmonized!")
+    reference_df = reference_df[complete.cases(reference_df[c(features, batch, covariates, random)]),]
   }else{
     reference_df = NULL
   }

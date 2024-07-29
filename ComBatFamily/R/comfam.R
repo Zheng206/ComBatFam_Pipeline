@@ -38,8 +38,6 @@
 #' @importFrom methods hasArg
 #' @importFrom stats family lm median model.matrix prcomp predict qnorm update var rnorm
 #' @importFrom CovBat covbat
-#' @importFrom neuroCombat neuroCombat
-#' @importFrom longCombat longCombat
 #' 
 #' @export
 #'
@@ -55,12 +53,20 @@
 #' comfam(iris[,1:2], iris$Species, iris[3:4], lm, y ~ Petal.Length + Petal.Width)
 comfam <- function(data, bat, covar = NULL, model = lm, formula = NULL,
                    eb = TRUE, robust.LS = FALSE, ref.batch = NULL, ...) {
-  if (hasArg(family)) {
-    if (!(list(...)$family$family %in% c("gaussian", "Normal"))) {
+  if (hasArg("family")) {
+    if (list(...)$family$family[1] != "NO") {
       warning("Families other than Gaussian are supported but experimental, output dataset will not necessarily be in the original space.")
-
+      
       warning("EB step will still assume Gaussian errors.")
     }
+  }
+  
+  if(is.null(formula) && !(is.null(covar))) {
+    warning("Covariates included but not controlled for, use the formula argument to control for covariates")
+  }
+  
+  if(!(is.null(formula)) && is.null(covar)) {
+    warning("Formula specified but covariates not included, covariate effects may not be preserved")
   }
 
   # Data details and formatting
@@ -343,6 +349,7 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
   fits <- object$fits
 
   #### Match new batches to old batches ####
+  known <- rownames(gamma_hat)
   bat <- droplevels(bat)
   newbat <- droplevels(newbat)
   bat_levels <- union(levels(bat), levels(newbat))
@@ -350,7 +357,7 @@ predict.comfam <- function(object, newdata, newbat, newcovar = NULL,
   batches <- lapply(levels(newbat_app), function(x) which(newbat_app == x))
 
   # new batches to estimate/adjust
-  newbat_est <- which(bat_levels %in% setdiff(levels(newbat), levels(bat)))
+  newbat_est <- which(bat_levels %in% setdiff(levels(newbat), known))
   newbat_adj <- which(bat_levels %in% levels(newbat))
 
   #### Standardize the data ####

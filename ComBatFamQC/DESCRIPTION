@@ -32,11 +32,9 @@ Imports:
     utils,
     gamlss.dist,
     ComBatFamily
-Remotes: PennSIVE/ComBatFamily
+Remotes: Zheng206/ComBatFam_Pipeline/ComBatFamily
 Depends: 
     R (>= 2.10)
 LazyData: true
-Suggests: 
-    knitr,
-    rmarkdown
+Suggests: knitr, rmarkdown, devtools, testthat, remotes
 VignetteBuilder: knitr
