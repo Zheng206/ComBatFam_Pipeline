@@ -14,8 +14,8 @@ require(tidyverse)
 #' @param random Variable name of a random effect in linear mixed effect model.
 #' @param smooth Variable name that requires a smooth function.
 #' @param interaction Expression of interaction terms supplied to `model` (eg: "age,diagnosis").
-#' @param smooth_int_type A vector that indicates the types of interaction in `gam` models. By default, smooth_int_type is set to be NULL, "linear" represents linear interaction terms. 
-#' "categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth), 
+#' @param smooth_int_type A vector that indicates the types of interaction in `gam` models. By default, smooth_int_type is set to be NULL, "linear" represents linear interaction terms.
+#' "categorical-continuous", "factor-smooth" both represent categorical-continuous interactions ("factor-smooth" includes categorical variable as part of the smooth),
 #' "tensor" represents interactions with different scales, and "smooth-smooth" represents interaction between smoothed variables.
 #' @param family combat family to use, comfam or covfam.
 #' @param ref.batch reference batch.
@@ -24,7 +24,7 @@ require(tidyverse)
 #' @param reference Dataset to be considered as the reference group.
 #' @param out_ref_include A boolean variable indicating whether the reference data should be included in the harmonized data output.
 #' @param ... Additional arguments to `comfam` or `covfam` models.
-#' 
+#'
 #' @return `combat_harm` returns a list containing the following components:
 #' \item{eb_df}{A dataframe contains empirical Bayes estimates}
 #' \item{com_family}{ComBat family to be considered: comfam, covfam}
@@ -34,11 +34,11 @@ require(tidyverse)
 #' @import tidyverse
 #' @import ComBatFamily
 #' @importFrom stats formula
-#' 
+#'
 #' @export
 
 combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates = NULL, df = NULL, type = "lm", random = NULL, smooth = NULL, interaction = NULL, smooth_int_type = NULL, family = "comfam", ref.batch = NULL, predict = FALSE, object = NULL, reference = NULL, out_ref_include = TRUE, ...){
-  
+
   if(!is.null(result)){
     message("Taking the ComBatQC result as the input...")
     df = result$info$df
@@ -100,7 +100,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     df[enco_var] =  lapply(df[enco_var], as.factor)
     cov_shiny = covariates
     char_var = c(char_var, enco_var)
-    
+
     # Summary
     summary_df = df %>% group_by(eval(parse(text = batch))) %>% summarize(count = n(), percentage = 100*count/nrow(df))
     colnames(summary_df) = c(batch, "count", "percentage (%)")
@@ -110,17 +110,17 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     if(length(batch_rm) > 0){
       print(paste0("Batch levels that contain less than 3 observations are dropped: ", length(batch_rm), " levels are dropped, corresponding to ", df %>% filter(eval(parse(text = batch)) %in% batch_rm) %>% nrow(), " observations."))
     }else{print("Batch levels that contain less than 3 observations are dropped: no batch level is dropped.")}
-    df = df %>% filter(!eval(parse(text = batch)) %in% batch_rm) 
+    df = df %>% filter(!eval(parse(text = batch)) %in% batch_rm)
     df[[batch]] = df[[batch]] %>% droplevels()
   }
-  
-  
+
+
   if(!is.null(random)){
     for (r in random){
       df[[r]] = as.factor(df[[r]])
     }
   }
-  
+
   ## drop univariate features
   features_orig = df[features]
   n_orig = length(colnames(features_orig))
@@ -138,7 +138,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
   interaction = int_result$interaction
   smooth = int_result$smooth
 
-  
+
   # Empirical Estimates
   if (is.null(covariates)){
     if(type == "lmer"){
@@ -157,17 +157,17 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       combat_c = df[cov_shiny]
     }
   }
-  
+
   if (is.null(reference)){
     if (!predict){
       message("Starting first-time harmonization...")
       form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth)
       if(family == "comfam"){
         ComBat_run = ComBatFamily::comfam(data = df[features],
-                                          bat = df[[batch]], 
+                                          bat = df[[batch]],
                                           covar = combat_c,
-                                          model = eval(parse(text = type)), 
-                                          formula = as.formula(form), 
+                                          model = eval(parse(text = type)),
+                                          formula = as.formula(form),
                                           ref.batch = ref.batch,
                                           ...)
         gamma_hat = ComBat_run$estimates$gamma.hat
@@ -178,14 +178,14 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
         eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
         eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
         eb_df = lapply(1:4, function(i){
-          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i])
           return(eb_df_long)
         }) %>% bind_rows()
       }else{
         ComBat_run = ComBatFamily::covfam(data = df[features],
-                                          bat = df[[batch]] , 
+                                          bat = df[[batch]] ,
                                           covar = combat_c,
-                                          model = eval(parse(text = type)), 
+                                          model = eval(parse(text = type)),
                                           formula = as.formula(form),
                                           ref.batch = ref.batch,
                                           ...)
@@ -201,7 +201,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
         eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
         eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
         eb_df = lapply(1:8, function(i){
-          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+          eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i])
           return(eb_df_long)
         }) %>% bind_rows()
       }
@@ -217,7 +217,7 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
       eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
       eb_df = lapply(1:4, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i])
         return(eb_df_long)
       }) %>% bind_rows()
     }
@@ -232,17 +232,17 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     }
     ## check if reference data is included in the new data
     other_info = setdiff(colnames(reference), features)
-    n_ref = df %>% semi_join(reference[other_info]) %>% nrow() 
+    n_ref = df %>% semi_join(reference[other_info]) %>% nrow()
     if(n_ref == nrow(reference)){
       message("The reference data is included in the new unharmonized dataset")
       untouched = reference
       new_data = df %>% anti_join(reference[other_info])
     }else{
       message("The reference data is separated from the new unharmonized dataset")
-      untouched = NULL
+      untouched = reference
       new_data = df
     }
-    
+
     reference[[batch]] = "reference"
     df_c = rbind(reference, new_data)
     df_c[[batch]] = as.factor(df_c[[batch]])
@@ -261,10 +261,10 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
     form = form_gen(x = type, c = form_c, i = interaction, random = random, smooth = smooth)
     if(family == "comfam"){
       ComBat_run = ComBatFamily::comfam(data = df_c[features],
-                                        bat = df_c[[batch]], 
+                                        bat = df_c[[batch]],
                                         covar = combat_c,
-                                        model = eval(parse(text = type)), 
-                                        formula = as.formula(form), 
+                                        model = eval(parse(text = type)),
+                                        formula = as.formula(form),
                                         ref.batch = "reference",
                                         ...)
       gamma_hat = ComBat_run$estimates$gamma.hat
@@ -275,14 +275,14 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior)
       eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior")
       eb_df = lapply(1:4, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i])
         return(eb_df_long)
       }) %>% bind_rows()
     }else{
       ComBat_run = ComBatFamily::covfam(data = df_c[features],
-                                        bat = df_c[[batch]] , 
+                                        bat = df_c[[batch]] ,
                                         covar = combat_c,
-                                        model = eval(parse(text = type)), 
+                                        model = eval(parse(text = type)),
                                         formula = as.formula(form),
                                         ref.batch = "reference",
                                         ...)
@@ -298,17 +298,17 @@ combat_harm <- function(result = NULL, features = NULL, batch = NULL, covariates
       eb_list = list(gamma_hat, delta_hat, gamma_prior, delta_prior, score_gamma_hat, score_delta_hat, score_gamma_prior, score_delta_prior)
       eb_name = c("gamma_hat", "delta_hat", "gamma_prior", "delta_prior", "score_gamma_hat", "score_delta_hat", "score_gamma_prior", "score_delta_prior")
       eb_df = lapply(1:8, function(i){
-        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i]) 
+        eb_df_long = data.frame(eb_list[[i]]) %>% mutate(batch = as.factor(batch_name), .before = 1) %>% tidyr::pivot_longer(2:(dim(eb_list[[i]])[2]+1), names_to = "features", values_to = "eb_values") %>% mutate(type = eb_name[i])
         return(eb_df_long)
       }) %>% bind_rows()
     }
   }
-  
+
   # Result
   used_col = c(features, cov_shiny, batch)
   other_col = setdiff(colnames(df), used_col)
   other_info = df[other_col]
-  
+
   if (is.null(reference)){
     if(family == "covfam"){
       com_family = "covfam"
